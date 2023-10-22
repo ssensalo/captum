@@ -39,18 +39,18 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">Dataset</span>
 
 
-<div class="viewcode-block" id="DataInfluence"><a class="viewcode-back" href="../../../../influence.html#captum.influence.DataInfluence">[docs]</a><span class="k">class</span> <span class="nc">DataInfluence</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="sa">r</span><span class="sd">"""</span>
+<div class="viewcode-block" id="DataInfluence">
+<a class="viewcode-back" href="../../../../influence.html#captum.influence.DataInfluence">[docs]</a>
+<span class="k">class</span> <span class="nc">DataInfluence</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    An abstract class to define model data influence skeleton.</span>
 <span class="sd">    """</span>
 
-    <span class="k">def</span> <span class="nf">__init_</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">influence_src_dataset</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+    <span class="k">def</span> <span class="nf">__init_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">train_dataset</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Args:</span>
 <span class="sd">            model (torch.nn.Module): An instance of pytorch model.</span>
-<span class="sd">            influence_src_dataset (torch.utils.data.Dataset): PyTorch Dataset that is</span>
+<span class="sd">            train_dataset (torch.utils.data.Dataset): PyTorch Dataset that is</span>
 <span class="sd">                    used to create a PyTorch Dataloader to iterate over the dataset and</span>
 <span class="sd">                    its labels. This is the dataset for which we will be seeking for</span>
 <span class="sd">                    influential instances. In most cases this is the training dataset.</span>
@@ -58,11 +58,13 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    implementation of `DataInfluence` abstract class.</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">influence_src_dataset</span> <span class="o">=</span> <span class="n">influence_src_dataset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_dataset</span> <span class="o">=</span> <span class="n">train_dataset</span>
 
-<div class="viewcode-block" id="DataInfluence.influence"><a class="viewcode-back" href="../../../../influence.html#captum.influence.DataInfluence.influence">[docs]</a>    <span class="nd">@abstractmethod</span>
+<div class="viewcode-block" id="DataInfluence.influence">
+<a class="viewcode-back" href="../../../../influence.html#captum.influence.DataInfluence.influence">[docs]</a>
+    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">influence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Args:</span>
 <span class="sd">            inputs (Any): Batch of examples for which influential</span>
 <span class="sd">                    instances are computed. They are passed to the forward_func. If</span>
@@ -75,7 +77,9 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">            influences (Any): We do not add restrictions on the return type for now,</span>
 <span class="sd">                    though this may change in the future.</span>
 <span class="sd">        """</span>
-        <span class="k">pass</span></div></div>
+        <span class="k">pass</span></div>
+</div>
+
 </pre></div>
 </div>
 </div>
@@ -94,6 +98,7 @@ src="/_sphinx/documentation_options.js"></script>
 <li class="toctree-l1"><a class="reference internal" href="../../../../robust.html">Robustness</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../concept.html">Concept-based Interpretability</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../influence.html">Influential Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../module.html">Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utilities.html">Utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../base_classes.html">Base Classes</a></li>
 </ul>
@@ -120,11 +125,11 @@ src="/_sphinx/documentation_options.js"></script>
 </form>
 </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 </div>
 </div>
 <div class="clearer"></div>
-</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2022 Facebook Inc.</section><script>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2023 Facebook Inc.</section><script>
             (function() {
               var BAD_BASE = '/captum/';
               if (window.location.origin !== 'https://captum.ai') {

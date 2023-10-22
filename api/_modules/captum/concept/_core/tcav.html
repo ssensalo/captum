@@ -53,14 +53,14 @@ src="/_sphinx/documentation_options.js"></script>
 
 
 <span class="k">class</span> <span class="nc">LabelledDataset</span><span class="p">(</span><span class="n">Dataset</span><span class="p">):</span>
-    <span class="sd">"""</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    A torch Dataset whose __getitem__ returns both a batch of activation vectors,</span>
 <span class="sd">    as well as a batch of labels associated with those activation vectors.</span>
 <span class="sd">    It is used to train a classifier in train_tcav</span>
 <span class="sd">    """</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datasets</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AV</span><span class="o">.</span><span class="n">AVDataset</span><span class="p">],</span> <span class="n">labels</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">"""</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Creates the LabelledDataset given a list of K Datasets, and a length K</span>
 <span class="sd">        list of integer labels representing K different concepts.</span>
 <span class="sd">        The assumption is that the k-th Dataset of datasets is associated with</span>
@@ -69,11 +69,13 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">        However, __get_item__ not only returns a batch of activation vectors,</span>
 <span class="sd">        but also a batch of labels indicating which concept that batch of</span>
 <span class="sd">        activation vectors is associated with.</span>
+
 <span class="sd">        Args:</span>
+
 <span class="sd">            datasets (list[Dataset]): The k-th element of datasets is a Dataset</span>
 <span class="sd">                    representing activation vectors associated with the k-th</span>
 <span class="sd">                    concept</span>
-<span class="sd">            labels (list[Int]): The k-th element of labels is the integer label</span>
+<span class="sd">            labels (list[int]): The k-th element of labels is the integer label</span>
 <span class="sd">                    associated with the k-th concept</span>
 <span class="sd">        """</span>
         <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">datasets</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span>
@@ -101,16 +103,17 @@ src="/_sphinx/documentation_options.js"></script>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">right</span> <span class="o">=</span> <span class="n">mid</span>
 
-    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
-        <span class="sd">"""</span>
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Returns a batch of activation vectors, as well as a batch of labels</span>
 <span class="sd">        indicating which concept the batch of activation vectors is associated</span>
 <span class="sd">        with.</span>
 
-<span class="sd">        args:</span>
+<span class="sd">        Args:</span>
+
 <span class="sd">            i (int): which (activation vector, label) batch in the dataset to</span>
 <span class="sd">                    return</span>
-<span class="sd">        returns:</span>
+<span class="sd">        Returns:</span>
 <span class="sd">            inputs (Tensor): i-th batch in Dataset (representing activation</span>
 <span class="sd">                    vectors)</span>
 <span class="sd">            labels (Tensor): labels of i-th batch in Dataset</span>
@@ -123,8 +126,8 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">[</span><span class="n">k</span><span class="p">]]</span> <span class="o">*</span> <span class="n">inputs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">inputs</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span>
 
-    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">"""</span>
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        returns the total number of batches in the labelled_dataset</span>
 <span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
@@ -138,13 +141,14 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="n">save_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">classifier_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CAV</span><span class="p">]]:</span>
-    <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    A helper function for parallel CAV computations that can be called</span>
 <span class="sd">    from a python process.</span>
 
 <span class="sd">    Please see the TCAV class documentation for further information.</span>
 
 <span class="sd">    Args:</span>
+
 <span class="sd">        model_id (str): A unique identifier for the PyTorch model for which</span>
 <span class="sd">                we would like to load the layer activations and train a</span>
 <span class="sd">                model in order to compute CAVs.</span>
@@ -152,7 +156,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                to train a classifier and learn decision boundaries between</span>
 <span class="sd">                those concepts for each layer defined in the `layers`</span>
 <span class="sd">                argument.</span>
-<span class="sd">        layers (str, list[str]): A list of layer names or a single layer</span>
+<span class="sd">        layers (str or list[str]): A list of layer names or a single layer</span>
 <span class="sd">                name that is used to compute the activations of all concept</span>
 <span class="sd">                examples per concept and train a classifier using those</span>
 <span class="sd">                activations.</span>
@@ -230,12 +234,14 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="k">return</span> <span class="n">cavs</span>
 
 
-<div class="viewcode-block" id="TCAV"><a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV">[docs]</a><span class="k">class</span> <span class="nc">TCAV</span><span class="p">(</span><span class="n">ConceptInterpreter</span><span class="p">):</span>
-    <span class="sa">r</span><span class="sd">"""</span>
+<div class="viewcode-block" id="TCAV">
+<a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV">[docs]</a>
+<span class="k">class</span> <span class="nc">TCAV</span><span class="p">(</span><span class="n">ConceptInterpreter</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    This class implements ConceptInterpreter abstract class using an</span>
 <span class="sd">    approach called Testing with Concept Activation Vectors (TCAVs),</span>
 <span class="sd">    as described in the paper:</span>
-<span class="sd">    https://arxiv.org/pdf/1711.11279.pdf</span>
+<span class="sd">    https://arxiv.org/abs/1711.11279</span>
 
 <span class="sd">    TCAV scores for a given layer, a list of concepts and input example</span>
 <span class="sd">    are computed using the dot product between prediction's layer</span>
@@ -281,11 +287,12 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">save_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"./cav/"</span><span class="p">,</span>
         <span class="o">**</span><span class="n">classifier_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Args:</span>
+
 <span class="sd">            model (Module): An instance of pytorch model that is used to compute</span>
 <span class="sd">                    layer activations and attributions.</span>
-<span class="sd">            layers (str, list[str]): A list of layer name(s) that are</span>
+<span class="sd">            layers (str or list[str]): A list of layer name(s) that are</span>
 <span class="sd">                    used for computing concept activations (cavs) and layer</span>
 <span class="sd">                    attributions.</span>
 <span class="sd">            model_id (str, optional): A unique identifier for the PyTorch `model`</span>
@@ -307,7 +314,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    attribution algorithm.</span>
 <span class="sd">            save_path (str, optional): The path for storing CAVs and</span>
 <span class="sd">                    Activation Vectors (AVs).</span>
-<span class="sd">            classifier_kwargs (any, optional): Additional arguments such as</span>
+<span class="sd">            classifier_kwargs (Any, optional): Additional arguments such as</span>
 <span class="sd">                    `test_split_ratio` that are passed to concept `classifier`.</span>
 
 <span class="sd">        Examples::</span>
@@ -360,21 +367,26 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="c1"># otherwise `create_cav_dir_if_missing` will raise an error</span>
         <span class="n">CAV</span><span class="o">.</span><span class="n">create_cav_dir_if_missing</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_path</span><span class="p">,</span> <span class="n">model_id</span><span class="p">)</span>
 
-<div class="viewcode-block" id="TCAV.generate_all_activations"><a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.generate_all_activations">[docs]</a>    <span class="k">def</span> <span class="nf">generate_all_activations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<div class="viewcode-block" id="TCAV.generate_all_activations">
+<a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.generate_all_activations">[docs]</a>
+    <span class="k">def</span> <span class="nf">generate_all_activations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Computes layer activations for all concepts and layers that are</span>
 <span class="sd">        defined in `self.layers` and `self.concepts` instance variables.</span>
 <span class="sd">        """</span>
         <span class="k">for</span> <span class="n">concept</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">concepts</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">generate_activation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">,</span> <span class="n">concept</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="TCAV.generate_activation"><a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.generate_activation">[docs]</a>    <span class="k">def</span> <span class="nf">generate_activation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">layers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">],</span> <span class="n">concept</span><span class="p">:</span> <span class="n">Concept</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+
+<div class="viewcode-block" id="TCAV.generate_activation">
+<a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.generate_activation">[docs]</a>
+    <span class="k">def</span> <span class="nf">generate_activation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">layers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">],</span> <span class="n">concept</span><span class="p">:</span> <span class="n">Concept</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Computes layer activations for the specified `concept` and</span>
 <span class="sd">        the list of layer(s) `layers`.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            layers (str, list[str]): A list of layer names or a layer name</span>
+<span class="sd">            layers (str or list[str]): A list of layer names or a layer name</span>
 <span class="sd">                    that is used to compute layer activations for the</span>
 <span class="sd">                    specific `concept`.</span>
 <span class="sd">            concept (Concept): A single Concept object that provides access</span>
@@ -405,8 +417,11 @@ src="/_sphinx/documentation_options.js"></script>
                     <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">),</span>
                 <span class="p">)</span></div>
 
-<div class="viewcode-block" id="TCAV.generate_activations"><a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.generate_activations">[docs]</a>    <span class="k">def</span> <span class="nf">generate_activations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">concept_layers</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Concept</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+
+<div class="viewcode-block" id="TCAV.generate_activations">
+<a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.generate_activations">[docs]</a>
+    <span class="k">def</span> <span class="nf">generate_activations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">concept_layers</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Concept</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Computes layer activations for the concepts and layers specified in</span>
 <span class="sd">        `concept_layers` dictionary.</span>
 
@@ -419,10 +434,13 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="k">for</span> <span class="n">concept</span> <span class="ow">in</span> <span class="n">concept_layers</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">generate_activation</span><span class="p">(</span><span class="n">concept_layers</span><span class="p">[</span><span class="n">concept</span><span class="p">],</span> <span class="n">concept</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="TCAV.load_cavs"><a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.load_cavs">[docs]</a>    <span class="k">def</span> <span class="nf">load_cavs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="TCAV.load_cavs">
+<a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.load_cavs">[docs]</a>
+    <span class="k">def</span> <span class="nf">load_cavs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">concepts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Concept</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Concept</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        This function load CAVs as a dictionary of concept ids and</span>
 <span class="sd">        layers. CAVs are stored in a directory located under</span>
 <span class="sd">        `self.save_path` path, in .pkl files with the format:</span>
@@ -435,6 +453,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">        of concepts and layer.</span>
 
 <span class="sd">        Args:</span>
+
 <span class="sd">            concepts (list[Concept]): A list of Concept objects for which we want</span>
 <span class="sd">                    to load the CAV.</span>
 
@@ -473,13 +492,16 @@ src="/_sphinx/documentation_options.js"></script>
                         <span class="n">concept_layers</span><span class="p">[</span><span class="n">concept</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">layers</span><span class="p">,</span> <span class="n">concept_layers</span></div>
 
-<div class="viewcode-block" id="TCAV.compute_cavs"><a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.compute_cavs">[docs]</a>    <span class="k">def</span> <span class="nf">compute_cavs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="TCAV.compute_cavs">
+<a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.compute_cavs">[docs]</a>
+    <span class="k">def</span> <span class="nf">compute_cavs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">experimental_sets</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Concept</span><span class="p">]],</span>
         <span class="n">force_train</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">processes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        This method computes CAVs for given `experiments_sets` and layers</span>
 <span class="sd">        specified in `self.layers` instance variable. Internally, it</span>
 <span class="sd">        trains a classifier and creates an instance of CAV class using the</span>
@@ -490,6 +512,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">        the argument.</span>
 
 <span class="sd">        Args:</span>
+
 <span class="sd">            experimental_sets (list[list[Concept]]): A list of lists of concept</span>
 <span class="sd">                    instances for which the cavs will be computed.</span>
 <span class="sd">            force_train (bool, optional): A flag that indicates whether to</span>
@@ -501,6 +524,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    multi-processing, otherwise it will be performed sequentially</span>
 <span class="sd">                    in a single process.</span>
 <span class="sd">                    Default: None</span>
+
 <span class="sd">        Returns:</span>
 <span class="sd">            cavs (dict) : A mapping of concept ids and layers to CAV objects.</span>
 <span class="sd">                    If CAVs for the concept_ids-layer pairs are present in the</span>
@@ -584,7 +608,10 @@ src="/_sphinx/documentation_options.js"></script>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cavs</span></div>
 
-<div class="viewcode-block" id="TCAV.interpret"><a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.interpret">[docs]</a>    <span class="nd">@log_usage</span><span class="p">()</span>
+
+<div class="viewcode-block" id="TCAV.interpret">
+<a class="viewcode-back" href="../../../../concept.html#captum.concept.TCAV.interpret">[docs]</a>
+    <span class="nd">@log_usage</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">interpret</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">TensorOrTupleOfTensorsGeneric</span><span class="p">,</span>
@@ -594,14 +621,15 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">processes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]]:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        This method computes magnitude and sign-based TCAV scores for each</span>
 <span class="sd">        experimental sets in `experimental_sets` list.</span>
 <span class="sd">        TCAV scores are computed using a dot product between layer attribution</span>
 <span class="sd">        scores for specific predictions and CAV vectors.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            inputs (tensor or tuple of tensors): Inputs for which predictions</span>
+
+<span class="sd">            inputs (Tensor or tuple[Tensor, ...]): Inputs for which predictions</span>
 <span class="sd">                    are performed and attributions are computed.</span>
 <span class="sd">                    If model takes a single tensor as</span>
 <span class="sd">                    input, a single input tensor should be provided.</span>
@@ -613,7 +641,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    provided, the examples must be aligned appropriately.</span>
 <span class="sd">            experimental_sets (list[list[Concept]]): A list of list of Concept</span>
 <span class="sd">                    instances.</span>
-<span class="sd">            target (int, tuple, tensor or list, optional):  Output indices for</span>
+<span class="sd">            target (int, tuple, Tensor, or list, optional): Output indices for</span>
 <span class="sd">                    which attributions are computed (for classification cases,</span>
 <span class="sd">                    this is usually the target class).</span>
 <span class="sd">                    If the network returns a scalar value per example,</span>
@@ -649,6 +677,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    attribution algorithm's attribute method. This could be for</span>
 <span class="sd">                    example `n_steps` in case of integrated gradients.</span>
 <span class="sd">                    Default: None</span>
+
 <span class="sd">        Returns:</span>
 <span class="sd">            results (dict): A dictionary of sign and magnitude -based tcav scores</span>
 <span class="sd">                    for each concept set per layer.</span>
@@ -775,6 +804,7 @@ src="/_sphinx/documentation_options.js"></script>
 
         <span class="k">return</span> <span class="n">scores</span></div>
 
+
     <span class="k">def</span> <span class="nf">_tcav_sub_computation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">scores</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]],</span>
@@ -820,6 +850,7 @@ src="/_sphinx/documentation_options.js"></script>
                     <span class="n">magnitude_score</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">new_ord</span>
                 <span class="p">),</span>
             <span class="p">}</span></div>
+
 </pre></div>
 </div>
 </div>
@@ -838,6 +869,7 @@ src="/_sphinx/documentation_options.js"></script>
 <li class="toctree-l1"><a class="reference internal" href="../../../../robust.html">Robustness</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../concept.html">Concept-based Interpretability</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../influence.html">Influential Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../module.html">Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utilities.html">Utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../base_classes.html">Base Classes</a></li>
 </ul>
@@ -864,11 +896,11 @@ src="/_sphinx/documentation_options.js"></script>
 </form>
 </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 </div>
 </div>
 <div class="clearer"></div>
-</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2022 Facebook Inc.</section><script>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2023 Facebook Inc.</section><script>
             (function() {
               var BAD_BASE = '/captum/';
               if (window.location.origin !== 'https://captum.ai') {

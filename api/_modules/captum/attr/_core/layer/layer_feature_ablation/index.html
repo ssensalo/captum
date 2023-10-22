@@ -51,8 +51,10 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="kn">from</span> <span class="nn">torch.nn.parallel.scatter_gather</span> <span class="kn">import</span> <span class="n">scatter</span>
 
 
-<div class="viewcode-block" id="LayerFeatureAblation"><a class="viewcode-back" href="../../../../../layer.html#captum.attr.LayerFeatureAblation">[docs]</a><span class="k">class</span> <span class="nc">LayerFeatureAblation</span><span class="p">(</span><span class="n">LayerAttribution</span><span class="p">,</span> <span class="n">PerturbationAttribution</span><span class="p">):</span>
-    <span class="sa">r</span><span class="sd">"""</span>
+<div class="viewcode-block" id="LayerFeatureAblation">
+<a class="viewcode-back" href="../../../../../layer.html#captum.attr.LayerFeatureAblation">[docs]</a>
+<span class="k">class</span> <span class="nc">LayerFeatureAblation</span><span class="p">(</span><span class="n">LayerAttribution</span><span class="p">,</span> <span class="n">PerturbationAttribution</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    A perturbation based approach to computing layer attribution, involving</span>
 <span class="sd">    replacing values in the input / output of a layer with a given baseline /</span>
 <span class="sd">    reference, and computing the difference in output. By default, each</span>
@@ -71,10 +73,10 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">layer</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
         <span class="n">device_ids</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Args:</span>
 
-<span class="sd">            forward_func (callable):  The forward function of the model or any</span>
+<span class="sd">            forward_func (Callable): The forward function of the model or any</span>
 <span class="sd">                          modification of it</span>
 <span class="sd">            layer (torch.nn.Module): Layer for which attributions are computed.</span>
 <span class="sd">                          Output size of attribute matches this layer's input or</span>
@@ -82,7 +84,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                          the inputs or outputs of the layer, corresponding to</span>
 <span class="sd">                          attribution of each neuron in the input or output of</span>
 <span class="sd">                          this layer.</span>
-<span class="sd">            device_ids (list(int)): Device ID list, necessary only if forward_func</span>
+<span class="sd">            device_ids (list[int]): Device ID list, necessary only if forward_func</span>
 <span class="sd">                          applies a DataParallel model. This allows reconstruction of</span>
 <span class="sd">                          intermediate outputs from batched results across devices.</span>
 <span class="sd">                          If forward_func is given as the DataParallel model itself</span>
@@ -93,7 +95,9 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">LayerAttribution</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">forward_func</span><span class="p">,</span> <span class="n">layer</span><span class="p">,</span> <span class="n">device_ids</span><span class="p">)</span>
         <span class="n">PerturbationAttribution</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">forward_func</span><span class="p">)</span>
 
-<div class="viewcode-block" id="LayerFeatureAblation.attribute"><a class="viewcode-back" href="../../../../../layer.html#captum.attr.LayerFeatureAblation.attribute">[docs]</a>    <span class="nd">@log_usage</span><span class="p">()</span>
+<div class="viewcode-block" id="LayerFeatureAblation.attribute">
+<a class="viewcode-back" href="../../../../../layer.html#captum.attr.LayerFeatureAblation.attribute">[docs]</a>
+    <span class="nd">@log_usage</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">attribute</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
@@ -104,10 +108,10 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">attribute_to_layer_input</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">perturbations_per_eval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Args:</span>
 
-<span class="sd">            inputs (tensor or tuple of tensors):  Input for which layer</span>
+<span class="sd">            inputs (Tensor or tuple[Tensor, ...]): Input for which layer</span>
 <span class="sd">                        attributions are computed. If forward_func takes a single</span>
 <span class="sd">                        tensor as input, a single input tensor should be provided.</span>
 <span class="sd">                        If forward_func takes multiple tensors as input, a tuple</span>
@@ -115,7 +119,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                        that for all given input tensors, dimension 0 corresponds</span>
 <span class="sd">                        to the number of examples, and if multiple input tensors</span>
 <span class="sd">                        are provided, the examples must be aligned appropriately.</span>
-<span class="sd">            layer_baselines (scalar, tensor, tuple of scalars or tensors, optional):</span>
+<span class="sd">            layer_baselines (scalar, Tensor, tuple of scalar, or Tensor, optional):</span>
 <span class="sd">                        Layer baselines define reference values which replace each</span>
 <span class="sd">                        layer input / output value when ablated.</span>
 <span class="sd">                        Layer baselines should be a single tensor with dimensions</span>
@@ -126,7 +130,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                        In the cases when `baselines` is not provided, we internally</span>
 <span class="sd">                        use zero as the baseline for each neuron.</span>
 <span class="sd">                        Default: None</span>
-<span class="sd">            target (int, tuple, tensor or list, optional):  Output indices for</span>
+<span class="sd">            target (int, tuple, Tensor, or list, optional): Output indices for</span>
 <span class="sd">                        which gradients are computed (for classification cases,</span>
 <span class="sd">                        this is usually the target class).</span>
 <span class="sd">                        If the network returns a scalar value per example,</span>
@@ -151,7 +155,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                          target for the corresponding example.</span>
 
 <span class="sd">                        Default: None</span>
-<span class="sd">            additional_forward_args (any, optional): If the forward function</span>
+<span class="sd">            additional_forward_args (Any, optional): If the forward function</span>
 <span class="sd">                        requires additional arguments other than the inputs for</span>
 <span class="sd">                        which attributions should not be computed, this argument</span>
 <span class="sd">                        can be provided. It must be either a single additional</span>
@@ -163,7 +167,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                        Note that attributions are not computed with respect</span>
 <span class="sd">                        to these arguments.</span>
 <span class="sd">                        Default: None</span>
-<span class="sd">            layer_mask (tensor or tuple of tensors, optional):</span>
+<span class="sd">            layer_mask (Tensor or tuple[Tensor, ...], optional):</span>
 <span class="sd">                        layer_mask defines a mask for the layer, grouping</span>
 <span class="sd">                        elements of the layer input / output which should be</span>
 <span class="sd">                        ablated together.</span>
@@ -203,8 +207,8 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                        Default: 1</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            *tensor* or tuple of *tensors* of **attributions**:</span>
-<span class="sd">            - **attributions** (*tensor* or tuple of *tensors*):</span>
+<span class="sd">            *Tensor* or *tuple[Tensor, ...]* of **attributions**:</span>
+<span class="sd">            - **attributions** (*Tensor* or *tuple[Tensor, ...]*):</span>
 <span class="sd">                        Attribution of each neuron in given layer input or</span>
 <span class="sd">                        output. Attributions will always be the same size as</span>
 <span class="sd">                        the input or output of the given layer, depending on</span>
@@ -331,7 +335,9 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="n">perturbations_per_eval</span><span class="o">=</span><span class="n">perturbations_per_eval</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">_attr</span> <span class="o">=</span> <span class="n">_format_output</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">layer_attribs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">,</span> <span class="n">layer_attribs</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">_attr</span></div></div>
+        <span class="k">return</span> <span class="n">_attr</span></div>
+</div>
+
 </pre></div>
 </div>
 </div>
@@ -350,6 +356,7 @@ src="/_sphinx/documentation_options.js"></script>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../robust.html">Robustness</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../concept.html">Concept-based Interpretability</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../influence.html">Influential Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../module.html">Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../utilities.html">Utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../base_classes.html">Base Classes</a></li>
 </ul>
@@ -376,11 +383,11 @@ src="/_sphinx/documentation_options.js"></script>
 </form>
 </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 </div>
 </div>
 <div class="clearer"></div>
-</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2022 Facebook Inc.</section><script>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2023 Facebook Inc.</section><script>
             (function() {
               var BAD_BASE = '/captum/';
               if (window.location.origin !== 'https://captum.ai') {

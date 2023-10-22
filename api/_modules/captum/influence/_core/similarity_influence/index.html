@@ -51,7 +51,7 @@ src="/_sphinx/documentation_options.js"></script>
 
 
 <span class="k">def</span> <span class="nf">euclidean_distance</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="n">train</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-    <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    Calculates the pairwise euclidean distance for batches of feature vectors.</span>
 <span class="sd">    Tensors test and train have shape (batch_size_1, *), and (batch_size_2, *).</span>
 <span class="sd">    Returns pairwise euclidean distance Tensor of shape (batch_size_1, batch_size_2).</span>
@@ -64,7 +64,7 @@ src="/_sphinx/documentation_options.js"></script>
 
 
 <span class="k">def</span> <span class="nf">cosine_similarity</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="n">train</span><span class="p">,</span> <span class="n">replace_nan</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-    <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    Calculates the pairwise cosine similarity for batches of feature vectors.</span>
 <span class="sd">    Tensors test and train have shape (batch_size_1, *), and (batch_size_2, *).</span>
 <span class="sd">    Returns pairwise cosine similarity Tensor of shape (batch_size_1, batch_size_2).</span>
@@ -72,7 +72,7 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="n">test</span> <span class="o">=</span> <span class="n">test</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">test</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">train</span> <span class="o">=</span> <span class="n">train</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">__version__</span> <span class="o">&lt;=</span> <span class="s2">"1.6.0"</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">common</span><span class="o">.</span><span class="n">_parse_version</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
         <span class="n">test_norm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">train_norm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
@@ -97,7 +97,9 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">"""</span>
 
 
-<div class="viewcode-block" id="SimilarityInfluence"><a class="viewcode-back" href="../../../../influence.html#captum.influence.SimilarityInfluence">[docs]</a><span class="k">class</span> <span class="nc">SimilarityInfluence</span><span class="p">(</span><span class="n">DataInfluence</span><span class="p">):</span>
+<div class="viewcode-block" id="SimilarityInfluence">
+<a class="viewcode-back" href="../../../../influence.html#captum.influence.SimilarityInfluence">[docs]</a>
+<span class="k">class</span> <span class="nc">SimilarityInfluence</span><span class="p">(</span><span class="n">DataInfluence</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">module</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
@@ -110,11 +112,11 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Args:</span>
 <span class="sd">            module (torch.nn.Module): An instance of pytorch model. This model should</span>
 <span class="sd">                    define all of its layers as attributes of the model.</span>
-<span class="sd">            layers (str or List of str): The fully qualified layer(s) for which the</span>
+<span class="sd">            layers (str or list[str]): The fully qualified layer(s) for which the</span>
 <span class="sd">                    activation vectors are computed.</span>
 <span class="sd">            influence_src_dataset (torch.utils.data.Dataset): PyTorch Dataset that is</span>
 <span class="sd">                    used to create a PyTorch Dataloader to iterate over the dataset and</span>
@@ -124,8 +126,8 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    and retrieve activation computations. Best practice would be to use</span>
 <span class="sd">                    an absolute path.</span>
 <span class="sd">            model_id (str): The name/version of the model for which layer</span>
-<span class="sd">                        activations are being computed. Activations will be stored and</span>
-<span class="sd">                        loaded under the subdirectory with this name if provided.</span>
+<span class="sd">                    activations are being computed. Activations will be stored and</span>
+<span class="sd">                    loaded under the subdirectory with this name if provided.</span>
 <span class="sd">            similarity_metric (Callable): This is a callable function that computes a</span>
 <span class="sd">                    similarity metric between two representations. For example, the</span>
 <span class="sd">                    representations pair could be from the training and test sets.</span>
@@ -188,7 +190,9 @@ src="/_sphinx/documentation_options.js"></script>
             <span class="n">influence_src_dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span>
         <span class="p">)</span>
 
-<div class="viewcode-block" id="SimilarityInfluence.influence"><a class="viewcode-back" href="../../../../influence.html#captum.influence.SimilarityInfluence.influence">[docs]</a>    <span class="k">def</span> <span class="nf">influence</span><span class="p">(</span>  <span class="c1"># type: ignore[override]</span>
+<div class="viewcode-block" id="SimilarityInfluence.influence">
+<a class="viewcode-back" href="../../../../influence.html#captum.influence.SimilarityInfluence.influence">[docs]</a>
+    <span class="k">def</span> <span class="nf">influence</span><span class="p">(</span>  <span class="c1"># type: ignore[override]</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
         <span class="n">top_k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
@@ -196,15 +200,15 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">load_src_from_disk</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Args:</span>
-<span class="sd">            inputs (tensor or tuple of tensors): Batch of examples for which influential</span>
-<span class="sd">                    instances are computed. They are passed to the forward_func. The</span>
-<span class="sd">                    first dimension in `inputs` tensor or tuple of tensors corresponds</span>
-<span class="sd">                    to the batch size. A tuple of tensors is only passed in if this</span>
-<span class="sd">                    is the input form that `module` accepts.</span>
+<span class="sd">            inputs (Tensor or tuple[Tensor, ...]): Batch of examples for which</span>
+<span class="sd">                    influential instances are computed. They are passed to the</span>
+<span class="sd">                    forward_func. The first dimension in `inputs` tensor or tuple</span>
+<span class="sd">                    of tensors corresponds to the batch size. A tuple of tensors</span>
+<span class="sd">                    is only passed in if thisis the input form that `module` accepts.</span>
 <span class="sd">            top_k (int): The number of top-matching activations to return</span>
-<span class="sd">            additional_forward_args (optional):  Additional arguments that will be</span>
+<span class="sd">            additional_forward_args (Any, optional): Additional arguments that will be</span>
 <span class="sd">                    passed to forward_func after inputs.</span>
 <span class="sd">            load_src_from_disk (bool): Loads activations for `influence_src_dataset`</span>
 <span class="sd">                    where possible. Setting to False would force regeneration of</span>
@@ -223,17 +227,17 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">        Returns:</span>
 
 <span class="sd">            influences (dict): Returns the influential instances retrieved from</span>
-<span class="sd">            `influence_src_dataset` for each test example represented through a</span>
-<span class="sd">            tensor or a tuple of tensor in `inputs`. Returned influential</span>
-<span class="sd">            examples are represented as dict, with keys corresponding to</span>
-<span class="sd">            the layer names passed in `layers`. Each value in the dict is a</span>
-<span class="sd">            tuple containing the indices and values for the top k similarities</span>
-<span class="sd">            from `influence_src_dataset` by the chosen metric. The first value</span>
-<span class="sd">            in the tuple corresponds to the indices corresponding to the top k</span>
-<span class="sd">            most similar examples, and the second value is the similarity score.</span>
-<span class="sd">            The batch dimension corresponds to the batch dimension of `inputs`.</span>
-<span class="sd">            If inputs.shape[0] == 5, then dict[`layer_name`][0].shape[0] == 5.</span>
-<span class="sd">            These tensors will be of shape (inputs.shape[0], top_k).</span>
+<span class="sd">                    `influence_src_dataset` for each test example represented through a</span>
+<span class="sd">                    tensor or a tuple of tensor in `inputs`. Returned influential</span>
+<span class="sd">                    examples are represented as dict, with keys corresponding to</span>
+<span class="sd">                    the layer names passed in `layers`. Each value in the dict is a</span>
+<span class="sd">                    tuple containing the indices and values for the top k similarities</span>
+<span class="sd">                    from `influence_src_dataset` by the chosen metric. The first value</span>
+<span class="sd">                    in the tuple corresponds to the indices corresponding to the top k</span>
+<span class="sd">                    most similar examples, and the second value is the similarity score.</span>
+<span class="sd">                    The batch dimension corresponds to the batch dimension of `inputs`.</span>
+<span class="sd">                    If inputs.shape[0] == 5, then dict[`layer_name`][0].shape[0] == 5.</span>
+<span class="sd">                    These tensors will be of shape (inputs.shape[0], top_k).</span>
 <span class="sd">        """</span>
         <span class="n">inputs_batch_size</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">inputs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -286,14 +290,14 @@ src="/_sphinx/documentation_options.js"></script>
                     <span class="s2">"Output of custom similarity does not meet required dimensions. "</span>
                     <span class="sa">f</span><span class="s2">"Your output has shape </span><span class="si">{</span><span class="n">similarity</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">Please ensure the "</span>
                     <span class="s2">"output shape matches (inputs_batch_size, src_dataset_batch_size), "</span>
-                    <span class="sa">f</span><span class="s2">"which should be </span><span class="si">{</span><span class="p">(</span><span class="n">inputs_batch_size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+                    <span class="sa">f</span><span class="s2">"which should be </span><span class="si">{</span><span class="p">(</span><span class="n">inputs_batch_size</span><span class="p">,</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
                 <span class="p">)</span>
                 <span class="k">assert</span> <span class="n">similarity</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">inputs_batch_size</span><span class="p">,</span> <span class="n">av_src</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">msg</span>
                 <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"replace_nan"</span><span class="p">):</span>
                     <span class="n">idx</span> <span class="o">=</span> <span class="p">(</span><span class="n">similarity</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">replace_nan</span><span class="p">)</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()</span>
                     <span class="n">zero_acts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="n">zero_acts</span><span class="p">,</span> <span class="n">idx</span><span class="p">))</span>
 
-                <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">                </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">                TODO: For models that can have tuples as activations, we should</span>
 <span class="sd">                allow similarity metrics to accept tuples, support topk selection.</span>
 <span class="sd">                """</span>
@@ -327,7 +331,9 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="n">key</span> <span class="o">=</span> <span class="s2">"-"</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s2">"zero_acts"</span><span class="p">,</span> <span class="n">layer</span><span class="p">])</span>
                 <span class="n">influences</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">zero_acts</span>
 
-        <span class="k">return</span> <span class="n">influences</span></div></div>
+        <span class="k">return</span> <span class="n">influences</span></div>
+</div>
+
 </pre></div>
 </div>
 </div>
@@ -346,6 +352,7 @@ src="/_sphinx/documentation_options.js"></script>
 <li class="toctree-l1"><a class="reference internal" href="../../../../robust.html">Robustness</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../concept.html">Concept-based Interpretability</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../influence.html">Influential Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../module.html">Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utilities.html">Utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../base_classes.html">Base Classes</a></li>
 </ul>
@@ -372,11 +379,11 @@ src="/_sphinx/documentation_options.js"></script>
 </form>
 </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 </div>
 </div>
 <div class="clearer"></div>
-</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2022 Facebook Inc.</section><script>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2023 Facebook Inc.</section><script>
             (function() {
               var BAD_BASE = '/captum/';
               if (window.location.origin !== 'https://captum.ai') {

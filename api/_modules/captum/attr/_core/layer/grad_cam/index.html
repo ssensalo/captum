@@ -48,8 +48,10 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
 
 
-<div class="viewcode-block" id="LayerGradCam"><a class="viewcode-back" href="../../../../../layer.html#captum.attr.LayerGradCam">[docs]</a><span class="k">class</span> <span class="nc">LayerGradCam</span><span class="p">(</span><span class="n">LayerAttribution</span><span class="p">,</span> <span class="n">GradientAttribution</span><span class="p">):</span>
-    <span class="sa">r</span><span class="sd">"""</span>
+<div class="viewcode-block" id="LayerGradCam">
+<a class="viewcode-back" href="../../../../../layer.html#captum.attr.LayerGradCam">[docs]</a>
+<span class="k">class</span> <span class="nc">LayerGradCam</span><span class="p">(</span><span class="n">LayerAttribution</span><span class="p">,</span> <span class="n">GradientAttribution</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    Computes GradCAM attribution for chosen layer. GradCAM is designed for</span>
 <span class="sd">    convolutional neural networks, and is usually applied to the last</span>
 <span class="sd">    convolutional layer.</span>
@@ -79,7 +81,7 @@ src="/_sphinx/documentation_options.js"></script>
 
 <span class="sd">    More details regarding the GradCAM method can be found in the</span>
 <span class="sd">    original paper here:</span>
-<span class="sd">    https://arxiv.org/pdf/1610.02391.pdf</span>
+<span class="sd">    https://arxiv.org/abs/1610.02391</span>
 <span class="sd">    """</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -88,16 +90,16 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">layer</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
         <span class="n">device_ids</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Args:</span>
 
-<span class="sd">            forward_func (callable):  The forward function of the model or any</span>
+<span class="sd">            forward_func (Callable): The forward function of the model or any</span>
 <span class="sd">                          modification of it</span>
 <span class="sd">            layer (torch.nn.Module): Layer for which attributions are computed.</span>
 <span class="sd">                          Output size of attribute matches this layer's output</span>
 <span class="sd">                          dimensions, except for dimension 2, which will be 1,</span>
 <span class="sd">                          since GradCAM sums over channels.</span>
-<span class="sd">            device_ids (list(int)): Device ID list, necessary only if forward_func</span>
+<span class="sd">            device_ids (list[int]): Device ID list, necessary only if forward_func</span>
 <span class="sd">                          applies a DataParallel model. This allows reconstruction of</span>
 <span class="sd">                          intermediate outputs from batched results across devices.</span>
 <span class="sd">                          If forward_func is given as the DataParallel model itself,</span>
@@ -106,7 +108,9 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">LayerAttribution</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">forward_func</span><span class="p">,</span> <span class="n">layer</span><span class="p">,</span> <span class="n">device_ids</span><span class="p">)</span>
         <span class="n">GradientAttribution</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">forward_func</span><span class="p">)</span>
 
-<div class="viewcode-block" id="LayerGradCam.attribute"><a class="viewcode-back" href="../../../../../layer.html#captum.attr.LayerGradCam.attribute">[docs]</a>    <span class="nd">@log_usage</span><span class="p">()</span>
+<div class="viewcode-block" id="LayerGradCam.attribute">
+<a class="viewcode-back" href="../../../../../layer.html#captum.attr.LayerGradCam.attribute">[docs]</a>
+    <span class="nd">@log_usage</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">attribute</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
@@ -114,11 +118,12 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">additional_forward_args</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">attribute_to_layer_input</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">relu_attributions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">attr_dim_summation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
-        <span class="sa">r</span><span class="sd">"""</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Args:</span>
 
-<span class="sd">            inputs (tensor or tuple of tensors):  Input for which attributions</span>
+<span class="sd">            inputs (Tensor or tuple[Tensor, ...]): Input for which attributions</span>
 <span class="sd">                        are computed. If forward_func takes a single</span>
 <span class="sd">                        tensor as input, a single input tensor should be provided.</span>
 <span class="sd">                        If forward_func takes multiple tensors as input, a tuple</span>
@@ -126,7 +131,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                        that for all given input tensors, dimension 0 corresponds</span>
 <span class="sd">                        to the number of examples, and if multiple input tensors</span>
 <span class="sd">                        are provided, the examples must be aligned appropriately.</span>
-<span class="sd">            target (int, tuple, tensor or list, optional):  Output indices for</span>
+<span class="sd">            target (int, tuple, Tensor, or list, optional): Output indices for</span>
 <span class="sd">                        which gradients are computed (for classification cases,</span>
 <span class="sd">                        this is usually the target class).</span>
 <span class="sd">                        If the network returns a scalar value per example,</span>
@@ -151,7 +156,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                          target for the corresponding example.</span>
 
 <span class="sd">                        Default: None</span>
-<span class="sd">            additional_forward_args (any, optional): If the forward function</span>
+<span class="sd">            additional_forward_args (Any, optional): If the forward function</span>
 <span class="sd">                        requires additional arguments other than the inputs for</span>
 <span class="sd">                        which attributions should not be computed, this argument</span>
 <span class="sd">                        can be provided. It must be either a single additional</span>
@@ -181,10 +186,14 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                        otherwise, by default, both positive and negative</span>
 <span class="sd">                        attributions are returned.</span>
 <span class="sd">                        Default: False</span>
+<span class="sd">            attr_dim_summation (bool, optional): Indicates whether to</span>
+<span class="sd">                        sum attributions along dimension 1 (usually channel).</span>
+<span class="sd">                        The default (True) means to sum along dimension 1.</span>
+<span class="sd">                        Default: True</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            *tensor* or tuple of *tensors* of **attributions**:</span>
-<span class="sd">            - **attributions** (*tensor* or tuple of *tensors*):</span>
+<span class="sd">            *Tensor* or *tuple[Tensor, ...]* of **attributions**:</span>
+<span class="sd">            - **attributions** (*Tensor* or *tuple[Tensor, ...]*):</span>
 <span class="sd">                        Attributions based on GradCAM method.</span>
 <span class="sd">                        Attributions will be the same size as the</span>
 <span class="sd">                        output of the given layer, except for dimension 2,</span>
@@ -240,13 +249,22 @@ src="/_sphinx/documentation_options.js"></script>
             <span class="k">for</span> <span class="n">layer_grad</span> <span class="ow">in</span> <span class="n">layer_gradients</span>
         <span class="p">)</span>
 
-        <span class="n">scaled_acts</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">summed_grad</span> <span class="o">*</span> <span class="n">layer_eval</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">summed_grad</span><span class="p">,</span> <span class="n">layer_eval</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">summed_grads</span><span class="p">,</span> <span class="n">layer_evals</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">attr_dim_summation</span><span class="p">:</span>
+            <span class="n">scaled_acts</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">summed_grad</span> <span class="o">*</span> <span class="n">layer_eval</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">summed_grad</span><span class="p">,</span> <span class="n">layer_eval</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">summed_grads</span><span class="p">,</span> <span class="n">layer_evals</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scaled_acts</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                <span class="n">summed_grad</span> <span class="o">*</span> <span class="n">layer_eval</span>
+                <span class="k">for</span> <span class="n">summed_grad</span><span class="p">,</span> <span class="n">layer_eval</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">summed_grads</span><span class="p">,</span> <span class="n">layer_evals</span><span class="p">)</span>
+            <span class="p">)</span>
+
         <span class="k">if</span> <span class="n">relu_attributions</span><span class="p">:</span>
             <span class="n">scaled_acts</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">scaled_act</span><span class="p">)</span> <span class="k">for</span> <span class="n">scaled_act</span> <span class="ow">in</span> <span class="n">scaled_acts</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">_format_output</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">scaled_acts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">,</span> <span class="n">scaled_acts</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">_format_output</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">scaled_acts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">,</span> <span class="n">scaled_acts</span><span class="p">)</span></div>
+</div>
+
 </pre></div>
 </div>
 </div>
@@ -265,6 +283,7 @@ src="/_sphinx/documentation_options.js"></script>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../robust.html">Robustness</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../concept.html">Concept-based Interpretability</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../influence.html">Influential Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../module.html">Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../utilities.html">Utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../base_classes.html">Base Classes</a></li>
 </ul>
@@ -291,11 +310,11 @@ src="/_sphinx/documentation_options.js"></script>
 </form>
 </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 </div>
 </div>
 <div class="clearer"></div>
-</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2022 Facebook Inc.</section><script>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2023 Facebook Inc.</section><script>
             (function() {
               var BAD_BASE = '/captum/';
               if (window.location.origin !== 'https://captum.ai') {
