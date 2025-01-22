@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
+
+# pyre-strict
 import copy
 import random
 import unittest
-from typing import Callable
+
+from typing import Callable, Generator
 
 import numpy as np
 import torch
 from captum.log import patch_methods
+from torch import Tensor
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def deep_copy_args(func: Callable):
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def copy_args(*args, **kwargs):
         return func(
             *(copy.deepcopy(x) for x in args),
@@ -19,7 +27,16 @@ def deep_copy_args(func: Callable):
     return copy_args
 
 
-def assertTensorAlmostEqual(test, actual, expected, delta=0.0001, mode="sum"):
+def assertTensorAlmostEqual(
+    # pyre-fixme[2]: Parameter must be annotated.
+    test,
+    # pyre-fixme[2]: Parameter must be annotated.
+    actual,
+    # pyre-fixme[2]: Parameter must be annotated.
+    expected,
+    delta: float = 0.0001,
+    mode: str = "sum",
+) -> None:
     assert isinstance(actual, torch.Tensor), (
         "Actual parameter given for " "comparison must be a tensor."
     )
@@ -57,7 +74,16 @@ def assertTensorAlmostEqual(test, actual, expected, delta=0.0001, mode="sum"):
         raise ValueError("Mode for assertion comparison must be one of `max` or `sum`.")
 
 
-def assertTensorTuplesAlmostEqual(test, actual, expected, delta=0.0001, mode="sum"):
+def assertTensorTuplesAlmostEqual(
+    # pyre-fixme[2]: Parameter must be annotated.
+    test,
+    # pyre-fixme[2]: Parameter must be annotated.
+    actual,
+    # pyre-fixme[2]: Parameter must be annotated.
+    expected,
+    delta: float = 0.0001,
+    mode: str = "sum",
+) -> None:
     if isinstance(expected, tuple):
         assert len(actual) == len(
             expected
@@ -69,13 +95,15 @@ def assertTensorTuplesAlmostEqual(test, actual, expected, delta=0.0001, mode="su
         assertTensorAlmostEqual(test, actual, expected, delta, mode)
 
 
-def assertAttributionComparision(test, attributions1, attributions2):
+# pyre-fixme[2]: Parameter must be annotated.
+def assertAttributionComparision(test, attributions1, attributions2) -> None:
     for attribution1, attribution2 in zip(attributions1, attributions2):
         for attr_row1, attr_row2 in zip(attribution1, attribution2):
             assertTensorAlmostEqual(test, attr_row1, attr_row2, 0.05, "max")
 
 
-def assert_delta(test, delta):
+# pyre-fixme[2]: Parameter must be annotated.
+def assert_delta(test, delta) -> None:
     delta_condition = (delta.abs() < 0.00001).all()
     test.assertTrue(
         delta_condition,
@@ -91,6 +119,26 @@ def set_all_random_seeds(seed: int = 1234) -> None:
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
+
+
+def lcg(
+    a: int = 16843009, b: int = 3014898611, m: int = 1 << 32
+) -> Generator[int, None, None]:
+    """Linear congruential generator"""
+    x = 1
+    while True:
+        x = (a * x + b) % m
+        yield x
+
+
+def rand_like(a: Tensor) -> Tensor:
+    """Random tensors (for dependency-free version-agnostic reproducibility).
+    PyTorch does not guarantee reproducible numbers across PyTorch releases,
+    individual commits, or different platforms. See:
+    https://pytorch.org/docs/stable/notes/randomness.html"""
+    g = lcg()
+    nums = [next(g) / (1 << 32) for _ in range(a.numel())]
+    return torch.tensor(nums, dtype=a.dtype, device=a.device).reshape(a.shape)
 
 
 class BaseTest(unittest.TestCase):

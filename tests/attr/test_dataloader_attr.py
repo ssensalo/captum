@@ -1,4 +1,6 @@
 #!/usr/bin/env fbpython
+
+# pyre-unsafe
 import math
 from typing import cast
 from unittest.mock import Mock, patch
@@ -7,23 +9,23 @@ import torch
 
 from captum.attr._core.dataloader_attr import DataLoaderAttribution, InputRole
 from captum.attr._core.feature_ablation import FeatureAblation
-from parameterized import parameterized
-from tests.helpers.basic import (
+from captum.testing.helpers.basic import (
     assertAttributionComparision,
     assertTensorAlmostEqual,
     BaseTest,
 )
+from parameterized import parameterized
 from torch import Tensor
 from torch.utils.data import DataLoader, TensorDataset
 
 
-def sum_forward(*inps):
+def sum_forward(*inps) -> Tensor:
     inps = [torch.flatten(inp, start_dim=1) for inp in inps]
     return torch.cat(inps, dim=1).sum(1)
 
 
 class Linear(torch.nn.Module):
-    def __init__(self, n):
+    def __init__(self, n) -> None:
         super().__init__()
         self.linear = torch.nn.Linear(n, 1)
 
@@ -336,7 +338,7 @@ class Test(BaseTest):
         self.assertEqual(dl_attribution.shape, expected_attr_shape)
 
     @parameterized.expand([(2,), (3,), (4,)])
-    def test_dl_attr_with_perturb_per_pass(self, perturb_per_pass) -> None:
+    def test_dl_attr_with_perturb_per_pass(self, perturb_per_pass: int) -> None:
         forward = sum_forward
 
         fa = FeatureAblation(forward)
@@ -371,3 +373,12 @@ class Test(BaseTest):
         )
 
         assertAttributionComparision(self, dl_attributions, expected_attr)
+
+    def test_futures_not_implemented(self) -> None:
+        forward = sum_forward
+        fa = FeatureAblation(forward)
+        dl_fa = DataLoaderAttribution(fa)
+        attributions = None
+        with self.assertRaises(NotImplementedError):
+            attributions = dl_fa.attribute_future()
+        self.assertEqual(attributions, None)

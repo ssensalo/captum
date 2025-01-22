@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+
+# pyre-strict
 from collections import defaultdict
 from copy import copy
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, cast, Dict, Iterable, List, Optional, Tuple, Union
 
 import torch
 from captum._utils.common import (
@@ -28,7 +30,8 @@ SUPPORTED_METHODS = {FeatureAblation}
 
 
 # default reducer wehn reduce is None. Simply concat the outputs by the batch dimension
-def _concat_tensors(accum, cur_output, _):
+# pyre-fixme[2]: Parameter must be annotated.
+def _concat_tensors(accum: Optional[Tensor], cur_output: Tensor, _) -> Tensor:
     return cur_output if accum is None else torch.cat([accum, cur_output])
 
 
@@ -59,11 +62,11 @@ def _create_perturbation_mask(
 
 
 def _perturb_inputs(
-    inputs: Iterable[Any],
+    inputs: Iterable[object],
     input_roles: Tuple[int],
     baselines: Tuple[Union[int, float, Tensor], ...],
     perturbation_mask: Tuple[Union[Tensor, None], ...],
-) -> Tuple[Any, ...]:
+) -> Tuple[object, ...]:
     """
     Perturb inputs based on perturbation mask and baselines
     """
@@ -84,6 +87,8 @@ def _perturb_inputs(
         else:
             baseline = baselines[attr_inp_count]
 
+            # pyre-fixme[58]: `*` is not supported for operand types `object` and
+            #  `Tensor`.
             perturbed_inp = inp * pert_mask + baseline * (1 - pert_mask)
             perturbed_inputs.append(perturbed_inp)
 
@@ -113,6 +118,8 @@ def _convert_output_shape(
     for inp, mask in zip(attr_inputs, feature_mask):
         # input in shape(batch_size, *inp_feature_dims)
         # attribute in shape(*output_dims, *inp_feature_dims)
+        # pyre-fixme[60]: Concatenation not yet support for multiple variadic
+        #  tuples: `*output_dims, *inp.shape[slice(1, None, None)]`.
         attr_shape = (*output_dims, *inp.shape[1:])
 
         expanded_feature_indices = mask.expand(attr_shape)
@@ -125,7 +132,11 @@ def _convert_output_shape(
             # (*output_dims, 1..., 1, n_features)
             # then broadcast to (*output_dims, *inp.shape[1:-1], n_features)
             n_extra_dims = len(extra_inp_dims)
+            # pyre-fixme[60]: Concatenation not yet support for multiple variadic
+            #  tuples: `*output_dims, *(1).__mul__(n_extra_dims)`.
             unsqueezed_shape = (*output_dims, *(1,) * n_extra_dims, n_features)
+            # pyre-fixme[60]: Concatenation not yet support for multiple variadic
+            #  tuples: `*output_dims, *extra_inp_dims`.
             expanded_shape = (*output_dims, *extra_inp_dims, n_features)
             expanded_unqiue_attr = unique_attr.reshape(unsqueezed_shape).expand(
                 expanded_shape
@@ -153,6 +164,8 @@ class DataLoaderAttribution(Attribution):
     e.g., Precision & Recall.
     """
 
+    attr_method: Attribution
+
     def __init__(self, attr_method: Attribution) -> None:
         r"""
         Args:
@@ -179,11 +192,12 @@ class DataLoaderAttribution(Attribution):
         input_roles: Tuple[int],
         baselines: Tuple[Union[int, float, Tensor], ...],
         feature_mask: Tuple[Tensor, ...],
+        # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
         reduce: Callable,
-        to_metric: Optional[Callable],
+        to_metric: Optional[Callable[[Tensor], Tensor]],
         show_progress: bool,
         feature_idx_to_mask_idx: Dict[int, List[int]],
-    ):
+    ) -> Tensor:
         """
         Wrapper of the original given forward_func to be used in the attribution method
         It iterates over the dataloader with the given forward_func
@@ -229,7 +243,8 @@ class DataLoaderAttribution(Attribution):
 
                 accum_states[i] = reduce(accum_states[i], output, perturbed_inputs)
 
-        accum_results = [
+        accum_states = cast(List[Tensor], accum_states)
+        accum_results: List[Tensor] = [
             to_metric(accum) if to_metric else accum for accum in accum_states
         ]
 
@@ -250,7 +265,9 @@ class DataLoaderAttribution(Attribution):
         input_roles: Optional[Tuple[int, ...]] = None,
         baselines: BaselineType = None,
         feature_mask: Union[None, Tensor, Tuple[Tensor, ...]] = None,
+        # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
         reduce: Optional[Callable] = None,
+        # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
         to_metric: Optional[Callable] = None,
         perturbations_per_pass: int = 1,
         show_progress: bool = False,
@@ -260,7 +277,7 @@ class DataLoaderAttribution(Attribution):
         Args:
 
             dataloader (torch.Dataloader): the dataloader to attribute, which should
-                        return a tuple of consistant size for every iteration
+                        return a tuple of consistent size for every iteration
             input_roles (tuple[int, ...], optional): a tuple of integers to define the
                         role of each element returned from the dataloader. It should
                         have the same size as the return of the dataloader.
@@ -310,7 +327,7 @@ class DataLoaderAttribution(Attribution):
                         traverses needed is
                         ceil(n_perturbations / perturbations_per_pass).
 
-                        This arguement offers control of the trade-off between memory
+                        This argument offers control of the trade-off between memory
                         and efficiency. If the dataloader involves slow operations like
                         remote request or file I/O, multiple traversals can be
                         inefficient. On the other hand, each perturbation needs to
@@ -336,21 +353,22 @@ class DataLoaderAttribution(Attribution):
                         If return_input_shape is False, a single tensor is returned
                         where each index of the last dimension represents a feature
         """
-        inputs = next(iter(dataloader))
+        inputs = cast(Union[Tensor, Tuple[Tensor, ...]], next(iter(dataloader)))
         is_inputs_tuple = True
 
+        inputs_tuple: Tuple[Tensor, ...]
         if type(inputs) is list:
             # support list as it is a common return type for dataloader in torch
-            inputs = tuple(inputs)
+            inputs_tuple = tuple(inputs)
         elif type(inputs) is not tuple:
             is_inputs_tuple = False
-            inputs = _format_tensor_into_tuples(inputs)
+            inputs_tuple = _format_tensor_into_tuples(inputs)
 
         if input_roles:
-            assert len(input_roles) == len(inputs), (
+            assert len(input_roles) == len(inputs_tuple), (
                 "input_roles must have the same size as the return of the dataloader,",
                 f"length of input_roles is {len(input_roles)} ",
-                f"whereas the length of dataloader return is {len(inputs)}",
+                f"whereas the length of dataloader return is {len(inputs_tuple)}",
             )
 
             assert any(role == InputRole.need_attr for role in input_roles), (
@@ -359,10 +377,12 @@ class DataLoaderAttribution(Attribution):
             )
         else:
             # by default, assume every element in the dataloader needs attribution
-            input_roles = tuple(InputRole.need_attr for _ in inputs)
+            input_roles = tuple(InputRole.need_attr for _ in inputs_tuple)
 
         attr_inputs = tuple(
-            inp for role, inp in zip(input_roles, inputs) if role == InputRole.need_attr
+            inp
+            for role, inp in zip(input_roles, inputs_tuple)
+            if role == InputRole.need_attr
         )
 
         baselines = _format_baseline(baselines, attr_inputs)
@@ -371,7 +391,8 @@ class DataLoaderAttribution(Attribution):
             "Baselines must have the same size as the return of the dataloader ",
             "that need attribution",
             f"length of baseline is {len(baselines)} ",
-            f'whereas the length of dataloader return with role "0" is {len(inputs)}',
+            'whereas the length of dataloader return with role "0" is',
+            f" {len(inputs_tuple)}",
         )
 
         for i, baseline in enumerate(baselines):
@@ -389,7 +410,8 @@ class DataLoaderAttribution(Attribution):
             "Feature mask must have the same size as the return of the dataloader ",
             "that need attribution",
             f"length of feature_mask is {len(feature_mask)} ",
-            f'whereas the length of dataloader return with role "0" is {len(inputs)}',
+            'whereas the length of dataloader return with role "0"',
+            f" is {len(inputs_tuple)}",
         )
 
         for i, each_mask in enumerate(feature_mask):
@@ -441,3 +463,12 @@ class DataLoaderAttribution(Attribution):
             )
 
             return _format_output(is_inputs_tuple, attr)
+
+    # pyre-fixme[24] Generic type `Callable` expects 2 type parameters.
+    def attribute_future(self) -> Callable:
+        r"""
+        This method is not implemented for DataLoaderAttribution.
+        """
+        raise NotImplementedError(
+            "attribute_future is not implemented for DataLoaderAttribution"
+        )

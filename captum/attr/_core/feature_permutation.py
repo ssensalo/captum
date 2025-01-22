@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-from typing import Any, Callable, Tuple, Union
+
+# pyre-strict
+from typing import Any, Callable, Optional, Tuple, Union
 
 import torch
 from captum._utils.typing import TargetType, TensorOrTupleOfTensorsGeneric
 from captum.attr._core.feature_ablation import FeatureAblation
 from captum.log import log_usage
 from torch import Tensor
+from torch.futures import Future
 
 
 def _permute_feature(x: Tensor, feature_mask: Tensor) -> Tensor:
@@ -70,7 +73,9 @@ class FeaturePermutation(FeatureAblation):
     """
 
     def __init__(
-        self, forward_func: Callable, perm_func: Callable = _permute_feature
+        self,
+        forward_func: Callable[..., Union[int, float, Tensor, Future[Tensor]]],
+        perm_func: Callable[[Tensor, Tensor], Tensor] = _permute_feature,
     ) -> None:
         r"""
         Args:
@@ -94,7 +99,7 @@ class FeaturePermutation(FeatureAblation):
         self,
         inputs: TensorOrTupleOfTensorsGeneric,
         target: TargetType = None,
-        additional_forward_args: Any = None,
+        additional_forward_args: Optional[object] = None,
         feature_mask: Union[None, TensorOrTupleOfTensorsGeneric] = None,
         perturbations_per_eval: int = 1,
         show_progress: bool = False,
@@ -255,7 +260,35 @@ class FeaturePermutation(FeatureAblation):
             >>> attr = feature_perm.attribute(input, target=1,
             >>>                               feature_mask=feature_mask)
         """
+        # Remove baselines from kwargs if provided so we don't specify this field
+        # twice in the FeatureAblation.attribute call below.
+        if isinstance(kwargs, dict) and "baselines" in kwargs:
+            del kwargs["baselines"]
         return FeatureAblation.attribute.__wrapped__(
+            self,
+            inputs,
+            baselines=None,
+            target=target,
+            additional_forward_args=additional_forward_args,
+            feature_mask=feature_mask,
+            perturbations_per_eval=perturbations_per_eval,
+            show_progress=show_progress,
+            **kwargs,
+        )
+
+    def attribute_future(
+        self,
+        inputs: TensorOrTupleOfTensorsGeneric,
+        target: TargetType = None,
+        additional_forward_args: Optional[object] = None,
+        feature_mask: Union[None, TensorOrTupleOfTensorsGeneric] = None,
+        perturbations_per_eval: int = 1,
+        show_progress: bool = False,
+        **kwargs: Any,
+    ) -> Future[TensorOrTupleOfTensorsGeneric]:
+        if isinstance(kwargs, dict) and "baselines" in kwargs:
+            del kwargs["baselines"]
+        return FeatureAblation.attribute_future.__wrapped__(
             self,
             inputs,
             baselines=None,
@@ -270,8 +303,8 @@ class FeaturePermutation(FeatureAblation):
     def _construct_ablated_input(
         self,
         expanded_input: Tensor,
-        input_mask: Tensor,
-        baseline: Union[int, float, Tensor],
+        input_mask: Union[None, Tensor, Tuple[Tensor, ...]],
+        baseline: Union[None, float, Tensor],
         start_feature: int,
         end_feature: int,
         **kwargs: Any,
@@ -290,13 +323,18 @@ class FeaturePermutation(FeatureAblation):
         Since `baselines` is set to None for `FeatureAblation.attribute, this
         will be the zero tensor, however, it is not used.
         """
-        assert input_mask.shape[0] == 1, (
+        assert (
+            input_mask is not None
+            and not isinstance(input_mask, tuple)
+            and input_mask.shape[0] == 1
+        ), (
             "input_mask.shape[0] != 1: pass in one mask in order to permute"
             "the same features for each input"
         )
         current_mask = torch.stack(
             [input_mask == j for j in range(start_feature, end_feature)], dim=0
         ).bool()
+        current_mask = current_mask.to(expanded_input.device)
 
         output = torch.stack(
             [

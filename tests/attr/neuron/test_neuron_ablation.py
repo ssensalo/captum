@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# pyre-unsafe
+
 import unittest
 from typing import Any, Callable, Tuple, Union
 
@@ -10,8 +12,9 @@ from captum._utils.typing import (
     TensorOrTupleOfTensorsGeneric,
 )
 from captum.attr._core.neuron.neuron_feature_ablation import NeuronFeatureAblation
-from tests.helpers.basic import assertTensorAlmostEqual, BaseTest
-from tests.helpers.basic_models import (
+from captum.testing.helpers import BaseTest
+from captum.testing.helpers.basic import assertTensorAlmostEqual
+from captum.testing.helpers.basic_models import (
     BasicModel_ConvNet_One_Conv,
     BasicModel_MultiLayer,
     BasicModel_MultiLayer_MultiInput,

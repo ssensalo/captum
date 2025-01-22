@@ -16,7 +16,7 @@ import sys
 from setuptools import find_packages, setup
 
 REQUIRED_MAJOR = 3
-REQUIRED_MINOR = 6
+REQUIRED_MINOR = 9
 
 # Check for python version
 if sys.version_info < (REQUIRED_MAJOR, REQUIRED_MINOR):
@@ -67,7 +67,7 @@ DEV_REQUIRES = (
     INSIGHTS_REQUIRES
     + TEST_REQUIRES
     + [
-        "black==22.3.0",
+        "black",
         "flake8",
         "sphinx",
         "sphinx-autodoc-typehints",
@@ -82,7 +82,9 @@ DEV_REQUIRES = (
 
 # get version string from module
 with open(os.path.join(os.path.dirname(__file__), "captum/__init__.py"), "r") as f:
-    version = re.search(r"__version__ = ['\"]([^'\"]*)['\"]", f.read(), re.M).group(1)
+    version_match = re.search(r"__version__ = ['\"]([^'\"]*)['\"]", f.read(), re.M)
+    assert version_match is not None, "Unable to find version string."
+    version = version_match.group(1)
     report("-- Building version " + version)
 
 # read in README.md as the long description
@@ -146,8 +148,14 @@ if __name__ == "__main__":
         ],
         long_description=long_description,
         long_description_content_type="text/markdown",
-        python_requires=">=3.6",
-        install_requires=["matplotlib", "numpy", "torch>=1.6"],
+        python_requires=">=3.9",
+        install_requires=[
+            "matplotlib",
+            "numpy<2.0",
+            "packaging",
+            "torch>=1.10",
+            "tqdm",
+        ],
         packages=find_packages(exclude=("tests", "tests.*")),
         extras_require={
             "dev": DEV_REQUIRES,

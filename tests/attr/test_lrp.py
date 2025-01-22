@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+
+# pyre-unsafe
 from typing import cast, Tuple
 
 import torch
@@ -10,8 +12,9 @@ from captum.attr._utils.lrp_rules import (
     GammaRule,
     IdentityRule,
 )
-from tests.helpers.basic import assertTensorAlmostEqual, BaseTest
-from tests.helpers.basic_models import (
+from captum.testing.helpers import BaseTest
+from captum.testing.helpers.basic import assertTensorAlmostEqual
+from captum.testing.helpers.basic_models import (
     BasicModel_ConvNet_One_Conv,
     BasicModel_MultiLayer,
     BasicModelWithReusedLinear,
@@ -326,3 +329,11 @@ class Test(BaseTest):
         lrp = LRP(model)
         with self.assertRaisesRegex(RuntimeError, "more than once"):
             lrp.attribute(inp, target=0)
+
+    def test_futures_not_implemented(self) -> None:
+        model = BasicModelWithReusedLinear()
+        lrp = LRP(model)
+        attributions = None
+        with self.assertRaises(NotImplementedError):
+            attributions = lrp.attribute_future()
+        self.assertEqual(attributions, None)

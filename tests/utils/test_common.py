@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 
+# pyre-unsafe
+
 from typing import cast, List, Tuple
 
 import torch
 from captum._utils.common import (
     _format_feature_mask,
     _get_max_feature_index,
-    _parse_version,
     _reduce_list,
     _select_targets,
     _sort_key_list,
+    parse_version,
     safe_div,
 )
-from tests.helpers.basic import (
+from captum.testing.helpers.basic import (
     assertTensorAlmostEqual,
     assertTensorTuplesAlmostEqual,
     BaseTest,
@@ -52,7 +54,7 @@ class Test(BaseTest):
         reduced = _reduce_list(tensors)
         assertTensorAlmostEqual(self, reduced, [[3, 4, 5], [0, 1, 2]])
 
-    def test_reduce_list_tuples(self):
+    def test_reduce_list_tuples(self) -> None:
         tensors = [
             (torch.tensor([[3, 4, 5]]), torch.tensor([[0, 1, 2]])),
             (torch.tensor([[3, 4, 5]]), torch.tensor([[0, 1, 2]])),
@@ -89,10 +91,10 @@ class Test(BaseTest):
         assertTensorAlmostEqual(
             self,
             _select_targets(output_tensor, torch.tensor([1, 2, 0])),
-            [[2], [6], [7]],
+            [2, 6, 7],
         )
         assertTensorAlmostEqual(
-            self, _select_targets(output_tensor, [1, 2, 0]), [[2], [6], [7]]
+            self, _select_targets(output_tensor, [1, 2, 0]), [2, 6, 7]
         )
 
         # Verify error is raised if too many dimensions are provided.
@@ -175,31 +177,31 @@ class Test(BaseTest):
 
 class TestParseVersion(BaseTest):
     def test_parse_version_dev(self) -> None:
-        version_str = "1.12.0.dev20201109"
-        output = _parse_version(version_str)
-        self.assertEqual(output, (1, 12, 0))
+        version_str = "2.3.0.dev20240311 "
+        output = parse_version(version_str)
+        self.assertEqual(output, (2, 3, 0))
 
     def test_parse_version_post(self) -> None:
         version_str = "1.3.0.post2"
-        output = _parse_version(version_str)
+        output = parse_version(version_str)
         self.assertEqual(output, (1, 3, 0))
 
     def test_parse_version_1_12_0(self) -> None:
-        version_str = "1.12.0"
-        output = _parse_version(version_str)
-        self.assertEqual(output, (1, 12, 0))
+        version_str = "1.13.0"
+        output = parse_version(version_str)
+        self.assertEqual(output, (1, 13, 0))
 
     def test_parse_version_1_12_2(self) -> None:
-        version_str = "1.12.2"
-        output = _parse_version(version_str)
-        self.assertEqual(output, (1, 12, 2))
+        version_str = "1.13.1"
+        output = parse_version(version_str)
+        self.assertEqual(output, (1, 13, 1))
 
-    def test_parse_version_1_6_0(self) -> None:
-        version_str = "1.6.0"
-        output = _parse_version(version_str)
-        self.assertEqual(output, (1, 6, 0))
+    def test_parse_version_2_0(self) -> None:
+        version_str = "2.0.0"
+        output = parse_version(version_str)
+        self.assertEqual(output, (2, 0, 0))
 
-    def test_parse_version_1_12(self) -> None:
-        version_str = "1.12"
-        output = _parse_version(version_str)
-        self.assertEqual(output, (1, 12))
+    def test_parse_version_1_13(self) -> None:
+        version_str = "1.13"
+        output = parse_version(version_str)
+        self.assertEqual(output, (1, 13))

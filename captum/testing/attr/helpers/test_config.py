@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# pyre-strict
+
 import torch
 from captum.attr._core.deep_lift import DeepLift, DeepLiftShap
 from captum.attr._core.feature_ablation import FeatureAblation
@@ -38,8 +40,8 @@ from captum.attr._core.occlusion import Occlusion
 from captum.attr._core.saliency import Saliency
 from captum.attr._core.shapley_value import ShapleyValueSampling
 from captum.attr._utils.input_layer_wrapper import ModelInputWrapper
-from tests.helpers.basic import set_all_random_seeds
-from tests.helpers.basic_models import (
+from captum.testing.helpers.basic import set_all_random_seeds
+from captum.testing.helpers.basic_models import (
     BasicModel_ConvNet,
     BasicModel_MultiLayer,
     BasicModel_MultiLayer_MultiInput,
@@ -87,6 +89,7 @@ config and creates relevant test cases based on the config.
 # Set random seeds to ensure deterministic behavior
 set_all_random_seeds(1234)
 
+# pyre-fixme[5]: Global expression must be annotated.
 config = [
     # Attribution Method Configs
     # Primary Methods (Generic Configs)

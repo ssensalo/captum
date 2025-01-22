@@ -5,20 +5,22 @@ set -e
 PYTORCH_NIGHTLY=false
 DEPLOY=false
 CHOSEN_TORCH_VERSION=-1
+CHOSEN_TRANSFORMERS_VERSION=-1
 
-while getopts 'ndfv:' flag; do
+while getopts 'ndfv:t:' flag; do
   case "${flag}" in
     n) PYTORCH_NIGHTLY=true ;;
     d) DEPLOY=true ;;
     f) FRAMEWORKS=true ;;
     v) CHOSEN_TORCH_VERSION=${OPTARG};;
-    *) echo "usage: $0 [-n] [-d] [-f] [-v version]" >&2
+    t) CHOSEN_TRANSFORMERS_VERSION=${OPTARG};;
+    *) echo "usage: $0 [-n] [-d] [-f] [-v version] [-t transformers_version]" >&2
        exit 1 ;;
     esac
   done
 
 # NOTE: Only Debian variants are supported, since this script is only
-# used by our tests on CircleCI. In the future we might generalize,
+# used by our tests on GitHub Actions. In the future we might generalize,
 # but users should hopefully be using conda installs.
 
 # install nodejs and yarn for insights build
@@ -33,6 +35,9 @@ sudo apt install yarn
 
 # yarn needs terminal info
 export TERM=xterm
+
+# Remove all items from pip cache to avoid hash mismatch
+pip cache purge
 
 # upgrade pip
 pip install --upgrade pip --progress-bar off
@@ -54,11 +59,19 @@ else
   if [[ $CHOSEN_TORCH_VERSION == -1 ]]; then
     pip install --upgrade torch --progress-bar off
   else
-    pip install torch==$CHOSEN_TORCH_VERSION --progress-bar off
+    pip install torch=="$CHOSEN_TORCH_VERSION" --progress-bar off
   fi
 fi
 
 # install deployment bits if asked for
 if [[ $DEPLOY == true ]]; then
   pip install beautifulsoup4 ipython nbconvert==5.6.1 --progress-bar off
+fi
+
+# install appropriate transformers version
+# If no version is specified, upgrade to the latest release.
+if [[ $CHOSEN_TRANSFORMERS_VERSION == -1 ]]; then
+  pip install --upgrade transformers --progress-bar off
+else
+  pip install transformers=="$CHOSEN_TRANSFORMERS_VERSION" --progress-bar off
 fi

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
-from typing import no_type_check, Optional, Tuple
+# pyre-strict
+
+from typing import no_type_check, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from torch.futures import Future
 
 """
 @no_type_check annotation is applied to type-hinted models to avoid errors
@@ -16,12 +19,15 @@ the relevant type hints.
 
 
 class BasicLinearReLULinear(nn.Module):
-    def __init__(self, in_features, out_features=5, bias=False) -> None:
+    # pyre-fixme[2]: Parameter must be annotated.
+    def __init__(self, in_features, out_features: int = 5, bias: bool = False) -> None:
         super().__init__()
         self.fc1 = nn.Linear(in_features, out_features, bias=bias)
         self.relu1 = nn.ReLU()
         self.fc2 = nn.Linear(out_features, 1, bias=bias)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, x):
         x = self.fc1(x)
         x = self.relu1(x)
@@ -33,6 +39,8 @@ class MixedKwargsAndArgsModule(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, x, y=None):
         if y is not None:
             return x + y
@@ -43,7 +51,8 @@ class BasicModel(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self, input):
+    # pyre-fixme[3]: Return type must be annotated.
+    def forward(self, input: Tensor):
         input = 1 - F.relu(1 - input)
         return input
 
@@ -59,7 +68,7 @@ class BasicModel2(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self, input1, input2):
+    def forward(self, input1: Tensor, input2: Tensor) -> Tensor:
         relu_out1 = F.relu(input1)
         relu_out2 = F.relu(input2)
         return F.relu(relu_out1 - 1 - relu_out2)
@@ -76,7 +85,8 @@ class BasicModel3(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self, input1, input2):
+    # pyre-fixme[2]: Parameter must be annotated.
+    def forward(self, input1, input2: Tensor) -> Tensor:
         relu_out1 = F.relu(input1 - 1)
         relu_out2 = F.relu(input2)
         return F.relu(relu_out1 - relu_out2)
@@ -92,7 +102,14 @@ class BasicModel4_MultiArgs(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self, input1, input2, additional_input1, additional_input2=0):
+    def forward(
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        input1,
+        input2: Tensor,
+        additional_input1: Union[bool, float, int, Tensor],
+        additional_input2: int = 0,
+    ) -> Tensor:
         relu_out1 = F.relu(input1 - 1)
         relu_out2 = F.relu(input2)
         relu_out2 = relu_out2.div(additional_input1)
@@ -109,7 +126,15 @@ class BasicModel5_MultiArgs(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self, input1, input2, additional_input1, additional_input2=0):
+    def forward(
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        input1,
+        input2: Tensor,
+        # pyre-fixme[2]: Parameter must be annotated.
+        additional_input1,
+        additional_input2: int = 0,
+    ) -> Tensor:
         relu_out1 = F.relu(input1 - 1) * additional_input1[0]
         relu_out2 = F.relu(input2)
         relu_out2 = relu_out2 * additional_input1[1]
@@ -120,8 +145,11 @@ class BasicModel6_MultiTensor(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, input1, input2):
         input = input1 + input2
+        # pyre-fixme[6]: For 1st argument expected `Tensor` but got `int`.
         return 1 - F.relu(1 - input)[:, 1]
 
 
@@ -130,25 +158,33 @@ class BasicLinearModel(nn.Module):
         super().__init__()
         self.linear = nn.Linear(7, 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, x1, x2):
         return self.linear(torch.cat((x1, x2), dim=-1))
 
 
 class BasicLinearModel2(nn.Module):
+    # pyre-fixme[2]: Parameter must be annotated.
     def __init__(self, in_features, out_features) -> None:
         super().__init__()
         self.linear = nn.Linear(in_features, out_features, bias=False)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, input):
         return self.linear(input)
 
 
 class BasicLinearModel_Multilayer(nn.Module):
+    # pyre-fixme[2]: Parameter must be annotated.
     def __init__(self, in_features, hidden_nodes, out_features) -> None:
         super().__init__()
         self.linear1 = nn.Linear(in_features, hidden_nodes, bias=False)
         self.linear2 = nn.Linear(hidden_nodes, out_features, bias=False)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, input):
         x = self.linear1(input)
         return self.linear2(x)
@@ -164,7 +200,8 @@ class ReLUDeepLiftModel(nn.Module):
         self.relu1 = nn.ReLU()
         self.relu2 = nn.ReLU()
 
-    def forward(self, x1, x2, x3=2):
+    # pyre-fixme[2]: Parameter must be annotated.
+    def forward(self, x1, x2, x3: int = 2) -> int:
         return 2 * self.relu1(x1) + x3 * self.relu2(x2 - 1.5)
 
 
@@ -178,6 +215,8 @@ class LinearMaxPoolLinearModel(nn.Module):
         self.lin2 = nn.Linear(1, 1, bias=False)
         self.lin2.weight = nn.Parameter(torch.ones(1, 1))
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, x):
         x = x.unsqueeze(1)
         return self.lin2(self.pool1(self.lin1(x))[:, 0, :])
@@ -190,6 +229,8 @@ class BasicModelWithReusedModules(nn.Module):
         self.relu = nn.ReLU()
         self.lin2 = nn.Linear(2, 2)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, inputs):
         return self.relu(self.lin2(self.relu(self.lin1(inputs))))
 
@@ -200,6 +241,8 @@ class BasicModelWithReusedLinear(nn.Module):
         self.lin1 = nn.Linear(3, 3)
         self.relu = nn.ReLU()
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, inputs):
         return self.relu(self.lin1(self.relu(self.lin1(inputs))))
 
@@ -211,18 +254,22 @@ class BasicModelWithSparseInputs(nn.Module):
         self.lin1.weight = nn.Parameter(torch.tensor([[3.0, 1.0, 2.0]]))
         self.lin1.bias = nn.Parameter(torch.zeros(1))
 
-    def forward(self, inputs, sparse_list):
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
+    def forward(self, inputs, sparse_list: Tensor):
         return (
             self.lin1(inputs) + (sparse_list[0] if torch.numel(sparse_list) > 0 else 0)
         ).sum()
 
 
 class BasicModel_MaxPool_ReLU(nn.Module):
-    def __init__(self, inplace=False) -> None:
+    def __init__(self, inplace: bool = False) -> None:
         super().__init__()
         self.maxpool = nn.MaxPool1d(3)
         self.relu = nn.ReLU(inplace=inplace)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, x):
         return self.relu(self.maxpool(x)).sum(dim=1)
 
@@ -238,7 +285,8 @@ class TanhDeepLiftModel(nn.Module):
         self.tanh1 = nn.Tanh()
         self.tanh2 = nn.Tanh()
 
-    def forward(self, x1, x2):
+    # pyre-fixme[2]: Parameter must be annotated.
+    def forward(self, x1, x2) -> int:
         return 2 * self.tanh1(x1) + 2 * self.tanh2(x2 - 1.5)
 
 
@@ -264,6 +312,7 @@ class ReLULinearModel(nn.Module):
 
 
 class SimpleLRPModel(nn.Module):
+    # pyre-fixme[2]: Parameter must be annotated.
     def __init__(self, inplace) -> None:
         super().__init__()
         self.linear = nn.Linear(3, 3, bias=False)
@@ -273,6 +322,8 @@ class SimpleLRPModel(nn.Module):
         self.linear2.weight.data.fill_(3.0)
         self.dropout = torch.nn.Dropout(p=0.01)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, x):
         return self.dropout(self.linear2(self.relu(self.linear(x))))
 
@@ -282,6 +333,8 @@ class Conv1dSeqModel(nn.Module):
         super().__init__()
         self.seq = nn.Sequential(nn.Conv1d(4, 2, 1), nn.ReLU(), nn.Linear(1000, 1))
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, inputs):
         return self.seq(inputs)
 
@@ -292,13 +345,23 @@ class TextModule(nn.Module):
     nested embedding layers
     """
 
-    def __init__(self, num_embeddings, embedding_dim, second_embedding=False) -> None:
+    def __init__(
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        num_embeddings,
+        # pyre-fixme[2]: Parameter must be annotated.
+        embedding_dim,
+        second_embedding: bool = False,
+    ) -> None:
         super().__init__()
         self.inner_embedding = nn.Embedding(num_embeddings, embedding_dim)
         self.second_embedding = second_embedding
         if self.second_embedding:
+            # pyre-fixme[4]: Attribute must be annotated.
             self.inner_embedding2 = nn.Embedding(num_embeddings, embedding_dim)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, input=None, another_input=None):
         assert input is not None, "The inputs to embedding module must be specified"
         embedding = self.inner_embedding(input)
@@ -306,6 +369,7 @@ class TextModule(nn.Module):
             another_embedding = self.inner_embedding2(
                 input if another_input is None else another_input
             )
+        # pyre-fixme[61]: `another_embedding` is undefined, or not always defined.
         return embedding if another_input is None else embedding + another_embedding
 
 
@@ -327,11 +391,11 @@ class BasicEmbeddingModel(nn.Module):
 
     def __init__(
         self,
-        num_embeddings=30,
-        embedding_dim=100,
-        hidden_dim=256,
-        output_dim=1,
-        nested_second_embedding=False,
+        num_embeddings: int = 30,
+        embedding_dim: int = 100,
+        hidden_dim: int = 256,
+        output_dim: int = 1,
+        nested_second_embedding: bool = False,
     ) -> None:
         super().__init__()
         self.embedding1 = nn.Embedding(num_embeddings, embedding_dim)
@@ -344,6 +408,8 @@ class BasicEmbeddingModel(nn.Module):
         self.linear2 = nn.Linear(hidden_dim, output_dim)
         self.linear2.weight = nn.Parameter(torch.ones(output_dim, hidden_dim))
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, input1, input2, input3=None):
         embedding1 = self.embedding1(input1)
         embedding2 = self.embedding2(input2, input3)
@@ -363,7 +429,7 @@ class MultiRelu(nn.Module):
 
 
 class BasicModel_MultiLayer(nn.Module):
-    def __init__(self, inplace=False, multi_input_module=False) -> None:
+    def __init__(self, inplace: bool = False, multi_input_module: bool = False) -> None:
         super().__init__()
         # Linear 0 is simply identity transform
         self.multi_input_module = multi_input_module
@@ -385,6 +451,7 @@ class BasicModel_MultiLayer(nn.Module):
         self.linear2.bias = nn.Parameter(torch.tensor([-1.0, 1.0]))
 
     @no_type_check
+    # pyre-fixme[3]: Return type must be annotated.
     def forward(
         self,
         x: Tensor,
@@ -397,6 +464,10 @@ class BasicModel_MultiLayer(nn.Module):
         if self.multi_input_module:
             relu_out1, relu_out2 = self.multi_relu(lin1_out, self.linear1_alt(input))
             relu_out = relu_out1 + relu_out2
+            # relu is not used when multi_input_module set to True,
+            # so this is to set an unsued layer intentionally for testing
+            # and it won't be part of return
+            self.relu(lin1_out)
         else:
             relu_out = self.relu(lin1_out)
         lin2_out = self.linear2(relu_out)
@@ -407,11 +478,83 @@ class BasicModel_MultiLayer(nn.Module):
             return lin2_out
 
 
+class BasicModel_MultiLayer_with_Future(nn.Module):
+    # This model is used to test the case where the model returns a future
+    def __init__(self, inplace: bool = False, multi_input_module: bool = False) -> None:
+        super().__init__()
+        # Linear 0 is simply identity transform
+        self.multi_input_module = multi_input_module
+        self.linear0 = nn.Linear(3, 3)
+        self.linear0.weight = nn.Parameter(torch.eye(3))
+        self.linear0.bias = nn.Parameter(torch.zeros(3))
+        self.linear1 = nn.Linear(3, 4)
+        self.linear1.weight = nn.Parameter(torch.ones(4, 3))
+        self.linear1.bias = nn.Parameter(torch.tensor([-10.0, 1.0, 1.0, 1.0]))
+
+        self.linear1_alt = nn.Linear(3, 4)
+        self.linear1_alt.weight = nn.Parameter(torch.ones(4, 3))
+        self.linear1_alt.bias = nn.Parameter(torch.tensor([-10.0, 1.0, 1.0, 1.0]))
+        self.multi_relu = MultiRelu(inplace=inplace)
+        self.relu = nn.ReLU(inplace=inplace)
+
+        self.linear2 = nn.Linear(4, 2)
+        self.linear2.weight = nn.Parameter(torch.ones(2, 4))
+        self.linear2.bias = nn.Parameter(torch.tensor([-1.0, 1.0]))
+
+    @no_type_check
+    # pyre-fixme[3]: Return type must be annotated.
+    def forward(
+        self,
+        x: Tensor,
+        add_input: Optional[Tensor] = None,
+        multidim_output: bool = False,
+    ):
+        input = x if add_input is None else x + add_input
+        lin0_out = self.linear0(input)
+        lin1_out = self.linear1(lin0_out)
+        if self.multi_input_module:
+            relu_out1, relu_out2 = self.multi_relu(lin1_out, self.linear1_alt(input))
+            relu_out = relu_out1 + relu_out2
+            # relu is not used when multi_input_module set to True,
+            # so this is to set an unsued layer intentionally for testing
+            # and it won't be part of return
+            self.relu(lin1_out)
+        else:
+            relu_out = self.relu(lin1_out)
+        # pyre-fixme [29]: `typing.Type[Future]` is not a function
+        result = Future()
+        lin2_out = self.linear2(relu_out)
+        if multidim_output:
+            stack_mid = torch.stack((lin2_out, 2 * lin2_out), dim=2)
+            result.set_result(torch.stack((stack_mid, 4 * stack_mid), dim=3))
+            return result
+        else:
+            result.set_result(lin2_out)
+            return result
+
+
+class BasicModelBoolInput_with_Future(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.mod = BasicModel_MultiLayer_with_Future()
+
+    # pyre-fixme[3]: Return type must be annotated.
+    def forward(
+        self,
+        x: Tensor,
+        add_input: Optional[Tensor] = None,
+        mult: float = 10.0,
+    ):
+        assert x.dtype is torch.bool, "Input must be boolean"
+        return self.mod(x.float() * mult, add_input)
+
+
 class BasicModelBoolInput(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.mod = BasicModel_MultiLayer()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def forward(
         self,
         x: Tensor,
@@ -428,6 +571,18 @@ class BasicModel_MultiLayer_MultiInput(nn.Module):
         self.model = BasicModel_MultiLayer()
 
     @no_type_check
+    # pyre-fixme[3]: Return type must be annotated.
+    def forward(self, x1: Tensor, x2: Tensor, x3: Tensor, scale: int):
+        return self.model(scale * (x1 + x2 + x3))
+
+
+class BasicModel_MultiLayer_MultiInput_with_Future(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.model = BasicModel_MultiLayer_with_Future()
+
+    @no_type_check
+    # pyre-fixme[3]: Return type must be annotated.
     def forward(self, x1: Tensor, x2: Tensor, x3: Tensor, scale: int):
         return self.model(scale * (x1 + x2 + x3))
 
@@ -465,6 +620,7 @@ class BasicModel_ConvNet_One_Conv(nn.Module):
         self.relu2 = nn.ReLU(inplace=inplace)
 
     @no_type_check
+    # pyre-fixme[3]: Return type must be annotated.
     def forward(self, x: Tensor, x2: Optional[Tensor] = None):
         if x2 is not None:
             x = x + x2
@@ -481,6 +637,7 @@ class BasicModel_ConvNetWithPaddingDilation(nn.Module):
         self.fc1 = nn.Linear(16, 4)
 
     @no_type_check
+    # pyre-fixme[3]: Return type must be annotated.
     def forward(self, x: Tensor):
         bsz = x.shape[0]
         x = self.relu1(self.conv1(x))
@@ -575,6 +732,8 @@ class BasicModel_ConvNet_MaxPool3d(nn.Module):
         self.fc1.weight = nn.Parameter(torch.ones(8, 4))
         self.fc2.weight = nn.Parameter(torch.ones(10, 8))
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, x):
         x = self.relu1(self.conv1(x))
         x = self.pool1(x)
