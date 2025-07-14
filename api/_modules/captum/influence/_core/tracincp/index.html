@@ -32,6 +32,8 @@ src="/_sphinx/documentation_options.js"></script>
 <h1>Source code for captum.influence._core.tracincp</h1><div class="highlight"><pre>
 <span></span><span class="ch">#!/usr/bin/env python3</span>
 
+<span class="c1"># pyre-strict</span>
+
 <span class="kn">import</span> <span class="nn">glob</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">abstractmethod</span>
@@ -39,9 +41,10 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Any</span><span class="p">,</span>
     <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
     <span class="n">Iterator</span><span class="p">,</span>
     <span class="n">List</span><span class="p">,</span>
-    <span class="n">NamedTuple</span><span class="p">,</span>
     <span class="n">Optional</span><span class="p">,</span>
     <span class="n">Tuple</span><span class="p">,</span>
     <span class="n">Type</span><span class="p">,</span>
@@ -50,20 +53,19 @@ src="/_sphinx/documentation_options.js"></script>
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">captum._utils.av</span> <span class="kn">import</span> <span class="n">AV</span>
-<span class="kn">from</span> <span class="nn">captum._utils.common</span> <span class="kn">import</span> <span class="n">_get_module_from_name</span><span class="p">,</span> <span class="n">_parse_version</span>
-<span class="kn">from</span> <span class="nn">captum._utils.gradient</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">_compute_jacobian_wrt_params</span><span class="p">,</span>
-    <span class="n">_compute_jacobian_wrt_params_with_sample_wise_trick</span><span class="p">,</span>
-<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">captum._utils.progress</span> <span class="kn">import</span> <span class="n">NullProgress</span><span class="p">,</span> <span class="n">progress</span>
 <span class="kn">from</span> <span class="nn">captum.influence._core.influence</span> <span class="kn">import</span> <span class="n">DataInfluence</span>
 <span class="kn">from</span> <span class="nn">captum.influence._utils.common</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">_check_loss_fn</span><span class="p">,</span>
+    <span class="n">_compute_jacobian_sample_wise_grads_per_batch</span><span class="p">,</span>
     <span class="n">_format_inputs_dataset</span><span class="p">,</span>
     <span class="n">_get_k_most_influential_helper</span><span class="p">,</span>
     <span class="n">_gradient_dot_product</span><span class="p">,</span>
+    <span class="n">_influence_route_to_helpers</span><span class="p">,</span>
     <span class="n">_load_flexible_state_dict</span><span class="p">,</span>
     <span class="n">_self_influence_by_batches_helper</span><span class="p">,</span>
+    <span class="n">_set_active_parameters</span><span class="p">,</span>
+    <span class="n">KMostInfluentialResults</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">captum.log</span> <span class="kn">import</span> <span class="n">log_usage</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
@@ -101,24 +103,6 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">"""</span>
 
 
-<span class="k">class</span> <span class="nc">KMostInfluentialResults</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    This namedtuple stores the results of using the `influence` method. This method</span>
-<span class="sd">    is implemented by all subclasses of `TracInCPBase` to calculate</span>
-<span class="sd">    proponents / opponents. The `indices` field stores the indices of the</span>
-<span class="sd">    proponents / opponents for each example in the test dataset. For example, if</span>
-<span class="sd">    finding opponents, `indices[i][j]` stores the index in the training data of the</span>
-<span class="sd">    example with the `j`-th highest influence score on the `i`-th example in the test</span>
-<span class="sd">    dataset. Similarly, the `influence_scores` field stores the actual influence scores,</span>
-<span class="sd">    so that `influence_scores[i][j]` is the influence score of example `indices[i][j]`</span>
-<span class="sd">    in the training data on example `i` of the test dataset. Please see</span>
-<span class="sd">    `TracInCPBase.influence` for more details.</span>
-<span class="sd">    """</span>
-
-    <span class="n">indices</span><span class="p">:</span> <span class="n">Tensor</span>
-    <span class="n">influence_scores</span><span class="p">:</span> <span class="n">Tensor</span>
-
-
 <div class="viewcode-block" id="TracInCPBase">
 <a class="viewcode-back" href="../../../../influence.html#captum.influence.TracInCPBase">[docs]</a>
 <span class="k">class</span> <span class="nc">TracInCPBase</span><span class="p">(</span><span class="n">DataInfluence</span><span class="p">):</span>
@@ -133,10 +117,14 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
         <span class="n">train_dataset</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">DataLoader</span><span class="p">],</span>
-        <span class="n">checkpoints</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Iterator</span><span class="p">],</span>
-        <span class="n">checkpoints_load_func</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">_load_flexible_state_dict</span><span class="p">,</span>
+        <span class="n">checkpoints</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+        <span class="n">checkpoints_load_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">float</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">_load_flexible_state_dict</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.</span>
         <span class="n">loss_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">batch_size</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.</span>
         <span class="n">test_loss_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
@@ -202,20 +190,13 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    Default: None</span>
 <span class="sd">        """</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
-
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span> <span class="o">=</span> <span class="n">AV</span><span class="o">.</span><span class="n">sort_files</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">)))</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">,</span> <span class="n">List</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span> <span class="o">=</span> <span class="n">AV</span><span class="o">.</span><span class="n">sort_files</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">)</span>  <span class="c1"># cast to avoid mypy error</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span><span class="p">,</span> <span class="n">List</span><span class="p">):</span>
-            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"No checkpoints saved!"</span>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span> <span class="o">=</span> <span class="n">checkpoints</span>  <span class="c1"># type: ignore</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints_load_func</span> <span class="o">=</span> <span class="n">checkpoints_load_func</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loss_fn</span> <span class="o">=</span> <span class="n">loss_fn</span>
         <span class="c1"># If test_loss_fn not provided, it's assumed to be same as loss_fn</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">test_loss_fn</span> <span class="o">=</span> <span class="n">loss_fn</span> <span class="k">if</span> <span class="n">test_loss_fn</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">test_loss_fn</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch_size</span>
 
@@ -224,6 +205,7 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="s2">"since the `train_dataset` argument was a `Dataset`, "</span>
                 <span class="s2">"`batch_size` must be an int."</span>
             <span class="p">)</span>
+            <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">train_dataloader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">train_dataloader</span> <span class="o">=</span> <span class="n">train_dataset</span>
@@ -240,7 +222,26 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="s2">"Unable to determine the number of batches in training dataset "</span>
                 <span class="s2">"`train_dataset`. Therefore, if showing the progress of computations, "</span>
                 <span class="s2">"only the number of batches processed can be displayed, and not the "</span>
-                <span class="s2">"percentage completion of the computation, nor any time estimates."</span>
+                <span class="s2">"percentage completion of the computation, nor any time estimates."</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">checkpoints</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoints</span>
+
+    <span class="nd">@checkpoints</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">checkpoints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoints</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoints</span> <span class="o">=</span> <span class="n">AV</span><span class="o">.</span><span class="n">sort_files</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">)))</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">,</span> <span class="n">List</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoints</span> <span class="o">=</span> <span class="n">AV</span><span class="o">.</span><span class="n">sort_files</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoints</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">checkpoints</span><span class="p">)</span>  <span class="c1"># cast to avoid mypy error</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_checkpoints</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Invalid checkpoints provided for TracIn class: </span><span class="si">{</span><span class="n">checkpoints</span><span class="si">}</span><span class="s2">!"</span>
             <span class="p">)</span>
 
 <div class="viewcode-block" id="TracInCPBase.self_influence">
@@ -309,7 +310,7 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">_get_k_most_influential</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">DataLoader</span><span class="p">],</span>
         <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
         <span class="n">proponents</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">show_progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
@@ -360,7 +361,7 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">_influence</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">DataLoader</span><span class="p">],</span>
         <span class="n">show_progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
@@ -397,7 +398,7 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">influence</span><span class="p">(</span>  <span class="c1"># type: ignore[override]</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">DataLoader</span><span class="p">],</span>
         <span class="n">k</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">proponents</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">unpack_inputs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -455,7 +456,7 @@ src="/_sphinx/documentation_options.js"></script>
 
 <span class="sd">            - influence score mode: if this mode is run (`k` is None), returns a 2D</span>
 <span class="sd">              tensor `influence_scores` of shape `(input_size, train_dataset_size)`,</span>
-<span class="sd">              where `input_size` is the number of examples in the test dataset, and</span>
+<span class="sd">              where `input_size` is the number of examples in the test batch, and</span>
 <span class="sd">              `train_dataset_size` is the number of examples in training dataset</span>
 <span class="sd">              `train_dataset`. In other words, `influence_scores[i][j]` is the</span>
 <span class="sd">              influence score of the `j`-th example in `train_dataset` on the `i`-th</span>
@@ -492,34 +493,6 @@ src="/_sphinx/documentation_options.js"></script>
 
 
 
-<span class="k">def</span> <span class="nf">_influence_route_to_helpers</span><span class="p">(</span>
-    <span class="n">influence_instance</span><span class="p">:</span> <span class="n">TracInCPBase</span><span class="p">,</span>
-    <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
-    <span class="n">k</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">proponents</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">KMostInfluentialResults</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    This is a helper function called by `TracInCP.influence` and</span>
-<span class="sd">    `TracInCPFast.influence`. Those methods share a common logic in that they assume</span>
-<span class="sd">    an instance of their respective classes implement 2 private methods</span>
-<span class="sd">    (``_influence`, `_get_k_most_influential`), and the logic of</span>
-<span class="sd">    which private method to call is common, as described in the documentation of the</span>
-<span class="sd">    `influence` method. The arguments and return values of this function are the exact</span>
-<span class="sd">    same as the `influence` method. Note that `influence_instance` refers to the</span>
-<span class="sd">    instance for which the `influence` method was called.</span>
-<span class="sd">    """</span>
-    <span class="k">if</span> <span class="n">k</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">influence_instance</span><span class="o">.</span><span class="n">_influence</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">influence_instance</span><span class="o">.</span><span class="n">_get_k_most_influential</span><span class="p">(</span>
-            <span class="n">inputs</span><span class="p">,</span>
-            <span class="n">k</span><span class="p">,</span>
-            <span class="n">proponents</span><span class="p">,</span>
-            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-        <span class="p">)</span>
-
-
 <div class="viewcode-block" id="TracInCP">
 <a class="viewcode-back" href="../../../../influence.html#captum.influence.TracInCP">[docs]</a>
 <span class="k">class</span> <span class="nc">TracInCP</span><span class="p">(</span><span class="n">TracInCPBase</span><span class="p">):</span>
@@ -527,11 +500,15 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
         <span class="n">train_dataset</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">DataLoader</span><span class="p">],</span>
-        <span class="n">checkpoints</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Iterator</span><span class="p">],</span>
-        <span class="n">checkpoints_load_func</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">_load_flexible_state_dict</span><span class="p">,</span>
+        <span class="n">checkpoints</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+        <span class="n">checkpoints_load_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">float</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">_load_flexible_state_dict</span><span class="p">,</span>
         <span class="n">layers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.</span>
         <span class="n">loss_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">batch_size</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.</span>
         <span class="n">test_loss_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">sample_wise_grads_per_batch</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -657,11 +634,11 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="bp">self</span><span class="o">.</span><span class="n">sample_wise_grads_per_batch</span> <span class="o">=</span> <span class="n">sample_wise_grads_per_batch</span>
 
         <span class="c1"># check `loss_fn`</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reduction_type</span> <span class="o">=</span> <span class="n">_check_loss_fn</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduction_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_check_loss_fn</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">loss_fn</span><span class="p">,</span> <span class="s2">"loss_fn"</span><span class="p">,</span> <span class="n">sample_wise_grads_per_batch</span>
         <span class="p">)</span>
         <span class="c1"># check `test_loss_fn` if it was provided</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">test_reduction_type</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">test_reduction_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">reduction_type</span>
             <span class="k">if</span> <span class="n">test_loss_fn</span> <span class="ow">is</span> <span class="kc">None</span>
             <span class="k">else</span> <span class="n">_check_loss_fn</span><span class="p">(</span>
@@ -674,47 +651,33 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">        within influence to restore after every influence call)? or make a copy so that</span>
 <span class="sd">        changes to grad_requires aren't persistent after using TracIn.</span>
 <span class="sd">        """</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">layer_modules</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layer_modules</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Module</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">layers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="n">List</span><span class="p">),</span> <span class="s2">"`layers` should be a list!"</span>
-            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"`layers` cannot be empty!"</span>
-            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span>
-                <span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">str</span>
-            <span class="p">),</span> <span class="s2">"`layers` should contain str layer names."</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">layer_modules</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">_get_module_from_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">layer</span><span class="p">)</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span>
-            <span class="p">]</span>
-            <span class="k">for</span> <span class="n">layer</span><span class="p">,</span> <span class="n">layer_module</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">layer_modules</span><span class="p">):</span>
-                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">layer_module</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
-                    <span class="k">if</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">:</span>
-                        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                            <span class="s2">"Setting required grads for layer: </span><span class="si">{}</span><span class="s2">, name: </span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                                <span class="s2">"."</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">layer</span><span class="p">),</span> <span class="n">name</span>
-                            <span class="p">)</span>
-                        <span class="p">)</span>
-                        <span class="n">param</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">layer_modules</span> <span class="o">=</span> <span class="n">_set_active_parameters</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">layers</span><span class="p">)</span>
 
 <div class="viewcode-block" id="TracInCP.influence">
 <a class="viewcode-back" href="../../../../influence.html#captum.influence.TracInCP.influence">[docs]</a>
-    <span class="nd">@log_usage</span><span class="p">()</span>
+    <span class="nd">@log_usage</span><span class="p">(</span><span class="n">part_of_slo</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">influence</span><span class="p">(</span>  <span class="c1"># type: ignore[override]</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">DataLoader</span><span class="p">],</span>
         <span class="n">k</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">proponents</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">show_progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">aggregate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">KMostInfluentialResults</span><span class="p">]:</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        This is the key method of this class, and can be run in 2 different modes,</span>
-<span class="sd">        where the mode that is run depends on the arguments passed to this method:</span>
+<span class="sd">        where the mode that is run depends on the arguments passed to this method.</span>
+<span class="sd">        Below, we describe the 2 modes, when `aggregate` is false:</span>
 
 <span class="sd">        - influence score mode: This mode is used if `k` is None. This mode computes</span>
 <span class="sd">          the influence score of every example in training dataset `train_dataset`</span>
-<span class="sd">          on every example in the test batch represented by `inputs`.</span>
+<span class="sd">          on every example in the test dataset represented by `inputs`.</span>
 <span class="sd">        - k-most influential mode: This mode is used if `k` is not None, and an int.</span>
 <span class="sd">          This mode computes the proponents or opponents of every example in the</span>
-<span class="sd">          test batch represented by `inputs`. In particular, for each test example in</span>
-<span class="sd">          the test batch, this mode computes its proponents (resp. opponents),</span>
+<span class="sd">          test dataset represented by `inputs`. In particular, for each test example in</span>
+<span class="sd">          the test dataset, this mode computes its proponents (resp. opponents),</span>
 <span class="sd">          which are the indices in the training dataset `train_dataset` of the</span>
 <span class="sd">          training examples with the `k` highest (resp. lowest) influence scores on the</span>
 <span class="sd">          test example. Proponents are computed if `proponents` is True. Otherwise,</span>
@@ -722,15 +685,35 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">          actual influence score of each proponent (resp. opponent) on the test</span>
 <span class="sd">          example.</span>
 
+<span class="sd">        When `aggregate` is True, this method computes "aggregate" influence scores,</span>
+<span class="sd">        which for a given training example, is the *sum* of its influence scores over</span>
+<span class="sd">        all examples in the test dataset. Below, we describe the 2 modes, when</span>
+<span class="sd">        `aggregate` is True:</span>
+
+<span class="sd">        - influence score mode: This mode is used if `k` is None. This mode computes</span>
+<span class="sd">          the aggregate influence score of each example in training dataset</span>
+<span class="sd">          `train_dataset` on the test dataset.</span>
+<span class="sd">        - k-most influential mode: This mode is used if `k` is not None, and an int.</span>
+<span class="sd">          This mode computes the "aggregate" proponents (resp. opponents), which are</span>
+<span class="sd">          the indices in the training dataset `train_dataset` of the examples with the</span>
+<span class="sd">          `k` highest (resp. lowest) aggregate influence scores on the test dataset.</span>
+<span class="sd">          Proponents are computed if `proponents` is True. Otherwise, opponents are</span>
+<span class="sd">          computed. This method also returns the actual aggregate influence scores</span>
+<span class="sd">          of each proponent (resp. opponent) on the test dataset.</span>
+
 <span class="sd">        Args:</span>
 
-<span class="sd">            inputs (tuple): `inputs` is the test batch and is a tuple of</span>
-<span class="sd">                    any, where the last element is assumed to be the labels for the</span>
-<span class="sd">                    batch. That is, `model(*batch[0:-1])` produces the output for</span>
-<span class="sd">                    `model`, and `batch[-1]` are the labels, if any. This is the same</span>
-<span class="sd">                    assumption made for each batch yielded by training dataset</span>
-<span class="sd">                    `train_dataset` - please see its documentation in `__init__` for</span>
-<span class="sd">                    more details on the assumed structure of a batch.</span>
+<span class="sd">            inputs (Tuple, or DataLoader): Either a single tuple of any, or a</span>
+<span class="sd">                    `DataLoader`, where each batch yielded is a tuple of any. In</span>
+<span class="sd">                    either case, the tuple represents a single batch, where the last</span>
+<span class="sd">                    element is assumed to be the labels for the batch. That is,</span>
+<span class="sd">                    `model(*batch[0:-1])` produces the output for `model`, and</span>
+<span class="sd">                    and `batch[-1]` are the labels, if any. Here, `model` is model</span>
+<span class="sd">                    provided in initialization. This is the same assumption made for</span>
+<span class="sd">                    each batch yielded by training dataset `train_dataset`. Please see</span>
+<span class="sd">                    documentation for the `train_dataset` argument to</span>
+<span class="sd">                    `TracInCPFastRandProj.__init__` for more details on the assumed</span>
+<span class="sd">                    structure of a batch.</span>
 <span class="sd">            k (int, optional): If not provided or `None`, the influence score mode will</span>
 <span class="sd">                    be run. Otherwise, the k-most influential mode will be run,</span>
 <span class="sd">                    and `k` is the number of proponents / opponents to return per</span>
@@ -750,28 +733,50 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    advanced features (e.g. time estimation). Otherwise, it will</span>
 <span class="sd">                    fallback to a simple output of progress.</span>
 <span class="sd">                    Default: False</span>
+<span class="sd">            aggregate (bool, optional): If true, return "aggregate" influence scores or</span>
+<span class="sd">                    examples with the highest / lowest aggregate influence scores on</span>
+<span class="sd">                    the test dataset, depending on the mode.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            The return value of this method depends on which mode is run.</span>
+<span class="sd">            The return value of this method depends on which mode is run, and whether</span>
+<span class="sd">            `aggregate` is True of False.</span>
+
+<span class="sd">            Below are the return values for the 2 modes, when `aggregate` is False:</span>
 
 <span class="sd">            - influence score mode: if this mode is run (`k` is None), returns a 2D</span>
 <span class="sd">              tensor `influence_scores` of shape `(input_size, train_dataset_size)`,</span>
-<span class="sd">              where `input_size` is the number of examples in the test batch, and</span>
+<span class="sd">              where `input_size` is the number of examples in the test dataset, and</span>
 <span class="sd">              `train_dataset_size` is the number of examples in training dataset</span>
 <span class="sd">              `train_dataset`. In other words, `influence_scores[i][j]` is the</span>
 <span class="sd">              influence score of the `j`-th example in `train_dataset` on the `i`-th</span>
-<span class="sd">              example in the test batch.</span>
+<span class="sd">              example in the test dataset.</span>
 <span class="sd">            - k-most influential mode: if this mode is run (`k` is an int), returns</span>
 <span class="sd">              a namedtuple `(indices, influence_scores)`. `indices` is a 2D tensor of</span>
 <span class="sd">              shape `(input_size, k)`, where `input_size` is the number of examples in</span>
-<span class="sd">              the test batch. If computing proponents (resp. opponents),</span>
+<span class="sd">              the test dataset. If computing proponents (resp. opponents),</span>
 <span class="sd">              `indices[i][j]` is the index in training dataset `train_dataset` of the</span>
 <span class="sd">              example with the `j`-th highest (resp. lowest) influence score (out of</span>
 <span class="sd">              the examples in `train_dataset`) on the `i`-th example in the test</span>
-<span class="sd">              batch. `influence_scores` contains the corresponding influence scores.</span>
+<span class="sd">              dataset. `influence_scores` contains the corresponding influence scores.</span>
 <span class="sd">              In particular, `influence_scores[i][j]` is the influence score of example</span>
-<span class="sd">              `indices[i][j]` in `train_dataset` on example `i` in the test batch</span>
+<span class="sd">              `indices[i][j]` in `train_dataset` on example `i` in the test dataset</span>
 <span class="sd">              represented by `inputs`.</span>
+
+<span class="sd">            Below are the return values for the 2 modes, when `aggregate` is True:</span>
+
+<span class="sd">            - influence score mode: if this mode is run (`k` is None), returns a 2D</span>
+<span class="sd">              tensor `influence_scores` of shape `(1, train_dataset_size)`, where</span>
+<span class="sd">              `influence_scores[0][j] is the aggregate influence score of the `j`-th</span>
+<span class="sd">              example in `train_dataset` on the test dataset.</span>
+<span class="sd">            - k-most influential mode: if this mode is run (`k` is an int), returns a</span>
+<span class="sd">              namedtuple `(indices, influence_scores)`. `indices` is a 2D tensor of</span>
+<span class="sd">              shape `(1, k)`. If computing proponents (resp. opponents),</span>
+<span class="sd">              `indices[0][j]` is the index in training dataset `train_dataset` of the</span>
+<span class="sd">              example with the `j`-th highest (resp. lowest) aggregate influence score</span>
+<span class="sd">              on the test dataset. `influence_scores` contains the corresponding</span>
+<span class="sd">              aggregate influence scores. In particular, `influence_scores[0][j]` is</span>
+<span class="sd">              the aggregate influence score of example `indices[0][j]` on the test</span>
+<span class="sd">              dataset.</span>
 <span class="sd">        """</span>
 
         <span class="k">assert</span> <span class="n">inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="p">(</span>
@@ -785,15 +790,17 @@ src="/_sphinx/documentation_options.js"></script>
             <span class="n">k</span><span class="p">,</span>
             <span class="n">proponents</span><span class="p">,</span>
             <span class="n">show_progress</span><span class="o">=</span><span class="n">show_progress</span><span class="p">,</span>
+            <span class="n">aggregate</span><span class="o">=</span><span class="n">aggregate</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
     <span class="k">def</span> <span class="nf">_sum_jacobians</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">DataLoader</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.</span>
         <span class="n">loss_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">reduction_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        sums the jacobians of all examples in `inputs`. result is of the</span>
 <span class="sd">        same format as layer_jacobians, but the batch dimension has size 1</span>
@@ -802,7 +809,7 @@ src="/_sphinx/documentation_options.js"></script>
 
         <span class="n">inputs_batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">inputs_iter</span><span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">get_batch_contribution</span><span class="p">(</span><span class="n">inputs_batch</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">get_batch_contribution</span><span class="p">(</span><span class="n">inputs_batch</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
             <span class="n">_input_jacobians</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_basic_computation_tracincp</span><span class="p">(</span>
                 <span class="n">inputs_batch</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
                 <span class="n">inputs_batch</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
@@ -832,9 +839,10 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="k">def</span> <span class="nf">_concat_jacobians</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">DataLoader</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.</span>
         <span class="n">loss_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">reduction_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
         <span class="n">all_inputs_batch_jacobians</span> <span class="o">=</span> <span class="p">[</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_basic_computation_tracincp</span><span class="p">(</span>
                 <span class="n">inputs_batch</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
@@ -852,7 +860,7 @@ src="/_sphinx/documentation_options.js"></script>
 
 <div class="viewcode-block" id="TracInCP.compute_intermediate_quantities">
 <a class="viewcode-back" href="../../../../influence.html#captum.influence.TracInCP.compute_intermediate_quantities">[docs]</a>
-    <span class="nd">@log_usage</span><span class="p">()</span>
+    <span class="nd">@log_usage</span><span class="p">(</span><span class="n">part_of_slo</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">compute_intermediate_quantities</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">DataLoader</span><span class="p">],</span>
@@ -911,10 +919,9 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    the variable d in the top of page 15 of the TracIn paper:</span>
 <span class="sd">                    https://arxiv.org/pdf/2002.08484.pdf.</span>
 <span class="sd">        """</span>
-        <span class="c1"># If `inputs` is not a `DataLoader`, turn it into one.</span>
-        <span class="n">inputs</span> <span class="o">=</span> <span class="n">_format_inputs_dataset</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">f_inputs</span><span class="p">:</span> <span class="n">DataLoader</span> <span class="o">=</span> <span class="n">_format_inputs_dataset</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">get_checkpoint_contribution</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">get_checkpoint_contribution</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
             <span class="k">assert</span> <span class="p">(</span>
                 <span class="n">checkpoint</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="p">),</span> <span class="s2">"None returned from `checkpoints`, cannot load."</span>
@@ -923,11 +930,15 @@ src="/_sphinx/documentation_options.js"></script>
             <span class="c1"># get jacobians as tuple of tensors</span>
             <span class="k">if</span> <span class="n">aggregate</span><span class="p">:</span>
                 <span class="n">inputs_jacobians</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sum_jacobians</span><span class="p">(</span>
-                    <span class="n">inputs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss_fn</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_type</span>
+                    <span class="n">f_inputs</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">loss_fn</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">reduction_type</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">inputs_jacobians</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_concat_jacobians</span><span class="p">(</span>
-                    <span class="n">inputs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss_fn</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_type</span>
+                    <span class="n">f_inputs</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">loss_fn</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">reduction_type</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="c1"># flatten into single tensor</span>
             <span class="k">return</span> <span class="n">learning_rate</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
@@ -949,14 +960,19 @@ src="/_sphinx/documentation_options.js"></script>
 
     <span class="k">def</span> <span class="nf">_influence_batch_tracincp</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">test_batch</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">input_checkpoint_jacobians</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
         <span class="n">train_batch</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        computes influence scores for a single training batch</span>
+<span class="sd">        computes influence scores for a single training batch.</span>
+<span class="sd">        `input_checkpoint_jacobians` is the output of</span>
+<span class="sd">        `_basic_computation_tracincp` applied to the test batch, for each checkpoint,</span>
+<span class="sd">        computed by `_get_checkpoint_jacobians`.</span>
 <span class="sd">        """</span>
 
-        <span class="k">def</span> <span class="nf">get_checkpoint_contribution</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">get_checkpoint_contribution</span><span class="p">(</span>
+            <span class="n">input_jacobians</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">checkpoint</span><span class="p">:</span> <span class="nb">str</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 
             <span class="k">assert</span> <span class="p">(</span>
                 <span class="n">checkpoint</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -964,12 +980,6 @@ src="/_sphinx/documentation_options.js"></script>
 
             <span class="n">learning_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints_load_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">checkpoint</span><span class="p">)</span>
 
-            <span class="n">input_jacobians</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_basic_computation_tracincp</span><span class="p">(</span>
-                <span class="n">test_batch</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
-                <span class="n">test_batch</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">test_loss_fn</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">test_reduction_type</span><span class="p">,</span>
-            <span class="p">)</span>
             <span class="k">return</span> <span class="p">(</span>
                 <span class="n">_gradient_dot_product</span><span class="p">(</span>
                     <span class="n">input_jacobians</span><span class="p">,</span>
@@ -983,34 +993,69 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="o">*</span> <span class="n">learning_rate</span>
             <span class="p">)</span>
 
-        <span class="n">batch_tracin_scores</span> <span class="o">=</span> <span class="n">get_checkpoint_contribution</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">batch_tracin_scores</span> <span class="o">=</span> <span class="n">get_checkpoint_contribution</span><span class="p">(</span>
+            <span class="n">input_checkpoint_jacobians</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">checkpoint</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-            <span class="n">batch_tracin_scores</span> <span class="o">+=</span> <span class="n">get_checkpoint_contribution</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">input_jacobians</span><span class="p">,</span> <span class="n">checkpoint</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="n">input_checkpoint_jacobians</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="p">):</span>
+            <span class="n">batch_tracin_scores</span> <span class="o">+=</span> <span class="n">get_checkpoint_contribution</span><span class="p">(</span>
+                <span class="n">input_jacobians</span><span class="p">,</span> <span class="n">checkpoint</span>
+            <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">batch_tracin_scores</span>
 
+    <span class="k">def</span> <span class="nf">_get_checkpoint_jacobians</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inputs_dataset</span><span class="p">:</span> <span class="n">DataLoader</span><span class="p">,</span>
+        <span class="n">aggregate</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.</span>
+        <span class="n">loss_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        computes the jacobians of all examples in `inputs_dataset`, for all</span>
+<span class="sd">        checkpoints. if `aggregate` is True, the jacobians for examples are summed.</span>
+<span class="sd">        returns a list where each element corresponds to a checkpoint. this logic is</span>
+<span class="sd">        separated into a helper function because it is used by both `_influence` and</span>
+<span class="sd">        `_get_k_most_influential`.</span>
+<span class="sd">        """</span>
+        <span class="n">inputs_checkpoint_jacobians</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">checkpoint</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">checkpoints_load_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">checkpoint</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">aggregate</span><span class="p">:</span>
+                <span class="n">inputs_checkpoint_jacobians</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_sum_jacobians</span><span class="p">(</span><span class="n">inputs_dataset</span><span class="p">,</span> <span class="n">loss_fn</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_type</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">inputs_checkpoint_jacobians</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_concat_jacobians</span><span class="p">(</span><span class="n">inputs_dataset</span><span class="p">,</span> <span class="n">loss_fn</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_type</span><span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">inputs_checkpoint_jacobians</span>
+
     <span class="k">def</span> <span class="nf">_influence</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">DataLoader</span><span class="p">],</span>
         <span class="n">show_progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">aggregate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Computes the influence of examples in training dataset `train_dataset`</span>
-<span class="sd">        on the examples in the test batch represented by `inputs`.</span>
+<span class="sd">        on the examples in the test dataset represented by `inputs`.</span>
 <span class="sd">        This implementation does not require knowing the number of training examples</span>
 <span class="sd">        in advance. Instead, the number of training examples is inferred from the</span>
 <span class="sd">        output of `self._basic_computation_tracincp`.</span>
 
 <span class="sd">        Args:</span>
 
-<span class="sd">            inputs (tuple): `inputs` is the test batch and is a tuple of</span>
-<span class="sd">                    any, where the last element is assumed to be the labels for the</span>
-<span class="sd">                    batch. That is, `model(*batch[0:-1])` produces the output for</span>
-<span class="sd">                    `model`, and `batch[-1]` are the labels, if any. This is the same</span>
-<span class="sd">                    assumption made for each batch yielded by training dataset</span>
-<span class="sd">                    `train_dataset` - please see its documentation in `__init__` for</span>
-<span class="sd">                    more details on the assumed structure of a batch.</span>
+<span class="sd">            inputs_dataset (Tuple, or DataLoader): Either a single tuple of any, or a</span>
+<span class="sd">                    `DataLoader`, where each batch yielded is a tuple of any. In</span>
+<span class="sd">                    either case, the tuple represents a single batch, where the last</span>
+<span class="sd">                    element is assumed to be the labels for the batch. That is,</span>
+<span class="sd">                    `model(*batch[0:-1])` produces the output for `model`, and</span>
+<span class="sd">                    and `batch[-1]` are the labels, if any. Here, `model` is model</span>
+<span class="sd">                    provided in initialization. This is the same assumption made for</span>
+<span class="sd">                    each batch yielded by training dataset `train_dataset`.</span>
 <span class="sd">            show_progress (bool, optional): To compute the influence of examples in</span>
 <span class="sd">                    training dataset `train_dataset`, we compute the influence</span>
 <span class="sd">                    of each batch. If `show_progress` is true, the progress of this</span>
@@ -1020,21 +1065,32 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    estimation). Otherwise, it will fallback to a simple output of</span>
 <span class="sd">                    progress.</span>
 <span class="sd">                    Default: False</span>
+<span class="sd">            aggregate (bool): Whether to return "aggregate" influence scores (see their</span>
+<span class="sd">                    definition in `influence`).</span>
+<span class="sd">                    Default: False</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            influence_scores (Tensor): Influence scores from the TracInCP method.</span>
-<span class="sd">            Its shape is `(input_size, train_dataset_size)`, where `input_size`</span>
-<span class="sd">            is the number of examples in the test batch, and</span>
+<span class="sd">            influence_scores (Tensor): If `aggregate` is False, influence scores are</span>
+<span class="sd">            returned as a 2D tensor whose shape is `(input_size, train_dataset_size)`,</span>
+<span class="sd">            where `input_size` is the number of examples in the test dataset, and</span>
 <span class="sd">            `train_dataset_size` is the number of examples in</span>
 <span class="sd">            training dataset `train_dataset`. For example:</span>
 <span class="sd">            `influence_scores[i][j]` is the influence score for the j-th training</span>
-<span class="sd">            example to the i-th example in the test batch.</span>
+<span class="sd">            example to the i-th example in the test dataset. If `aggregate` is True,</span>
+<span class="sd">            "aggregate" influence scores are returned as a 2D tensor whose shape is</span>
+<span class="sd">            `(1, train_dataset_size)`. For example: `influence_scores[0][j]` is the</span>
+<span class="sd">            aggregate influence score of the j-th training example on the test dataset.</span>
 <span class="sd">        """</span>
-        <span class="n">train_dataloader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_dataloader</span>
+        <span class="c1"># If `inputs` is not a `DataLoader`, turn it into one.</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">_format_inputs_dataset</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
 
+        <span class="n">train_dataloader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_dataloader</span>
+        <span class="n">data_iterable</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span> <span class="n">DataLoader</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">train_dataloader</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="n">show_progress</span><span class="p">:</span>
-            <span class="n">train_dataloader</span> <span class="o">=</span> <span class="n">progress</span><span class="p">(</span>
-                <span class="n">train_dataloader</span><span class="p">,</span>
+            <span class="n">data_iterable</span> <span class="o">=</span> <span class="n">progress</span><span class="p">(</span>
+                <span class="n">cast</span><span class="p">(</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span> <span class="n">train_dataloader</span><span class="p">),</span>
                 <span class="n">desc</span><span class="o">=</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">"Using </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">get_name</span><span class="p">()</span><span class="si">}</span><span class="s2"> to compute "</span>
                     <span class="s2">"influence for training batches"</span>
@@ -1042,31 +1098,39 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="n">total</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">train_dataloader_len</span><span class="p">,</span>
             <span class="p">)</span>
 
+        <span class="c1"># create list of the outputs of `_basic_computation_tracincp`, for each</span>
+        <span class="c1"># checkpoint, which are jacobians</span>
+        <span class="n">inputs_checkpoint_jacobians</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_checkpoint_jacobians</span><span class="p">(</span>
+            <span class="n">inputs</span><span class="p">,</span> <span class="n">aggregate</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_loss_fn</span>
+        <span class="p">)</span>
+
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
             <span class="p">[</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_influence_batch_tracincp</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">train_dataloader</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_influence_batch_tracincp</span><span class="p">(</span><span class="n">inputs_checkpoint_jacobians</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">data_iterable</span>
             <span class="p">],</span>
             <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_get_k_most_influential</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">DataLoader</span><span class="p">],</span>
         <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
         <span class="n">proponents</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">show_progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">aggregate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KMostInfluentialResults</span><span class="p">:</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Args:</span>
 
-<span class="sd">            inputs (tuple): `inputs` is the test batch and is a tuple of</span>
-<span class="sd">                    any, where the last element is assumed to be the labels for the</span>
-<span class="sd">                    batch. That is, `model(*batch[0:-1])` produces the output for</span>
-<span class="sd">                    `model`, and `batch[-1]` are the labels, if any. This is the same</span>
-<span class="sd">                    assumption made for each batch yielded by training dataset</span>
-<span class="sd">                    `train_dataset` - please see its documentation in `__init__` for</span>
-<span class="sd">                    more details on the assumed structure of a batch.</span>
+<span class="sd">            inputs (Tuple, or DataLoader): Either a single tuple of any, or a</span>
+<span class="sd">                    `DataLoader`, where each batch yielded is a tuple of any. In</span>
+<span class="sd">                    either case, the tuple represents a single batch, where the last</span>
+<span class="sd">                    element is assumed to be the labels for the batch. That is,</span>
+<span class="sd">                    `model(*batch[0:-1])` produces the output for `model`, and</span>
+<span class="sd">                    and `batch[-1]` are the labels, if any. Here, `model` is model</span>
+<span class="sd">                    provided in initialization. This is the same assumption made for</span>
+<span class="sd">                    each batch yielded by training dataset `train_dataset`.</span>
 <span class="sd">            k (int, optional): The number of proponents or opponents to return per test</span>
 <span class="sd">                    example.</span>
 <span class="sd">                    Default: 5</span>
@@ -1082,22 +1146,32 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    available for advanced features (e.g. time estimation). Otherwise,</span>
 <span class="sd">                    it will fallback to a simple output of progress.</span>
 <span class="sd">                    Default: False</span>
+<span class="sd">            aggregate (bool): Whether to return with the highest / lowest "aggregate"</span>
+<span class="sd">                    influence scores (see their definition in `influence`).</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            (indices, influence_scores) (namedtuple): `indices` is a torch.long Tensor</span>
-<span class="sd">                    that contains the indices of the proponents (or opponents) for each</span>
-<span class="sd">                    test example. Its dimension is `(inputs_batch_size, k)`, where</span>
-<span class="sd">                    `inputs_batch_size` is the number of examples in `inputs`. For</span>
-<span class="sd">                    example, if `proponents==True`, `indices[i][j]` is the index of the</span>
-<span class="sd">                    example in training dataset `train_dataset` with the</span>
-<span class="sd">                    k-th highest influence score for the j-th example in `inputs`.</span>
-<span class="sd">                    `indices` is a `torch.long` tensor so that it can directly be used</span>
-<span class="sd">                    to index other tensors. Each row of `influence_scores` contains the</span>
-<span class="sd">                    influence scores for a different test example, in sorted order. In</span>
+<span class="sd">            (indices, influence_scores) (namedtuple): If `aggregate` is False,</span>
+<span class="sd">                    `indices` is a 2D tensor of shape `(input_size, k)`, where</span>
+<span class="sd">                    `input_size` is the number of examples in the test dataset. If</span>
+<span class="sd">                    computing proponents (resp. opponents), `indices[i][j]` is the</span>
+<span class="sd">                    index in training dataset `train_dataset` of the example with the</span>
+<span class="sd">                    `j`-th highest (resp. lowest) influence score (out of the examples</span>
+<span class="sd">                    in `train_dataset`) on the `i`-th example in the test dataset.</span>
+<span class="sd">                    `influence_scores` contains the corresponding influence scores. In</span>
 <span class="sd">                    particular, `influence_scores[i][j]` is the influence score of</span>
-<span class="sd">                    example `indices[i][j]` in training dataset `train_dataset`</span>
-<span class="sd">                    on example `i` in the test batch represented by `inputs`.</span>
+<span class="sd">                    example `indices[i][j]` in `train_dataset` on example `i` in the</span>
+<span class="sd">                    test dataset represented by `inputs`. If `aggregate` is True,</span>
+<span class="sd">                    `indices` is a 2D tensor of shape `(1, k)`. If computing proponents</span>
+<span class="sd">                    (resp. opponents), `indices[0][j]` is the index in training dataset</span>
+<span class="sd">                    `train_dataset` of the example with the `j`-th highest (resp.</span>
+<span class="sd">                    lowest) aggregate influence score on the test dataset.</span>
+<span class="sd">                    `influence_scores` contains the corresponding aggregate influence</span>
+<span class="sd">                    scores. In particular, `influence_scores[0][j]` is the aggregate</span>
+<span class="sd">                    influence score of example `indices[0][j]` on the test dataset.</span>
 <span class="sd">        """</span>
+        <span class="c1"># If `inputs` is not a `DataLoader`, turn it into one.</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">_format_inputs_dataset</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+
         <span class="n">desc</span> <span class="o">=</span> <span class="p">(</span>
             <span class="kc">None</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">show_progress</span>
@@ -1109,11 +1183,18 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
+
+        <span class="c1"># create list of the outputs of `_basic_computation_tracincp`, for each</span>
+        <span class="c1"># checkpoint, which are jacobians</span>
+        <span class="n">inputs_checkpoint_jacobians</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_checkpoint_jacobians</span><span class="p">(</span>
+            <span class="n">inputs</span><span class="p">,</span> <span class="n">aggregate</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_loss_fn</span>
+        <span class="p">)</span>
+
         <span class="k">return</span> <span class="n">KMostInfluentialResults</span><span class="p">(</span>
             <span class="o">*</span><span class="n">_get_k_most_influential_helper</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">train_dataloader</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_influence_batch_tracincp</span><span class="p">,</span>
-                <span class="n">inputs</span><span class="p">,</span>
+                <span class="n">inputs_checkpoint_jacobians</span><span class="p">,</span>
                 <span class="n">k</span><span class="p">,</span>
                 <span class="n">proponents</span><span class="p">,</span>
                 <span class="n">show_progress</span><span class="p">,</span>
@@ -1180,7 +1261,7 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="k">if</span> <span class="n">show_progress</span><span class="p">:</span>
             <span class="c1"># Try to determine length of inner progress bar if possible, with a default</span>
             <span class="c1"># of `None`.</span>
-            <span class="n">inputs_len</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">inputs_len</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">inputs_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
@@ -1189,10 +1270,11 @@ src="/_sphinx/documentation_options.js"></script>
                     <span class="s2">"Therefore, if showing the progress of the computation of self "</span>
                     <span class="s2">"influence scores, only the number of batches processed can be "</span>
                     <span class="s2">"displayed, and not the percentage completion of the computation, "</span>
-                    <span class="s2">"nor any time estimates."</span>
+                    <span class="s2">"nor any time estimates."</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
                 <span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">calculate_via_vector_norm</span><span class="p">(</span><span class="n">layer_jacobian</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">calculate_via_vector_norm</span><span class="p">(</span><span class="n">layer_jacobian</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
             <span class="c1"># Helper to efficiently calculate vector norm if pytorch version permits.</span>
             <span class="k">return</span> <span class="p">(</span>
                 <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">vector_norm</span><span class="p">(</span>
@@ -1202,10 +1284,7 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="o">**</span> <span class="mi">2</span>
             <span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">calculate_via_flatten</span><span class="p">(</span><span class="n">layer_jacobian</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">layer_jacobian</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">start_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="k">def</span> <span class="nf">get_checkpoint_contribution</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">get_checkpoint_contribution</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
             <span class="c1"># This function returns a 1D tensor representing the contribution to the</span>
             <span class="c1"># self influence score for the given checkpoint, for all batches in</span>
             <span class="c1"># `inputs`. The length of the 1D tensor is the total number of</span>
@@ -1222,7 +1301,7 @@ src="/_sphinx/documentation_options.js"></script>
             <span class="c1"># the same)</span>
             <span class="n">checkpoint_contribution</span> <span class="o">=</span> <span class="p">[]</span>
 
-            <span class="n">_inputs</span> <span class="o">=</span> <span class="n">inputs</span>
+            <span class="n">_inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">DataLoader</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]]]</span> <span class="o">=</span> <span class="n">inputs</span>
             <span class="c1"># If `show_progress` is true, create an inner progress bar that keeps track</span>
             <span class="c1"># of how many batches have been processed for the current checkpoint</span>
             <span class="k">if</span> <span class="n">show_progress</span><span class="p">:</span>
@@ -1238,8 +1317,8 @@ src="/_sphinx/documentation_options.js"></script>
             <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">_inputs</span><span class="p">:</span>
 
                 <span class="n">layer_jacobians</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_basic_computation_tracincp</span><span class="p">(</span>
-                    <span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
-                    <span class="n">batch</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="n">cast</span><span class="p">(</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">batch</span><span class="p">)[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="n">cast</span><span class="p">(</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">batch</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">loss_fn</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">reduction_type</span><span class="p">,</span>
                 <span class="p">)</span>
@@ -1251,18 +1330,14 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="c1"># `layer_jacobian` is of shape (batch_size, *). For each layer, we need</span>
                 <span class="c1"># the squared jacobian for each example. So we square the jacobian and</span>
                 <span class="c1"># sum over all dimensions except the 0-th (the batch dimension). We then</span>
-                <span class="c1"># sum the contribution over all layers.  For Pytorch &gt; 1.10 we use the</span>
-                <span class="c1"># optimized torch.linalg.vector_norm as opposed to the explicit flatten.</span>
-
-                <span class="n">calculate_fn</span> <span class="o">=</span> <span class="n">calculate_via_flatten</span>
-                <span class="k">if</span> <span class="n">_parse_version</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
-                    <span class="n">calculate_fn</span> <span class="o">=</span> <span class="n">calculate_via_vector_norm</span>
+                <span class="c1"># sum the contribution over all layers.  We use the optimized</span>
+                <span class="c1"># torch.linalg.vector_norm as opposed to the explicit flatten.</span>
 
                 <span class="n">checkpoint_contribution</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
                         <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
                             <span class="p">[</span>
-                                <span class="n">calculate_fn</span><span class="p">(</span><span class="n">layer_jacobian</span><span class="p">)</span>
+                                <span class="n">calculate_via_vector_norm</span><span class="p">(</span><span class="n">layer_jacobian</span><span class="p">)</span>
                                 <span class="k">for</span> <span class="n">layer_jacobian</span> <span class="ow">in</span> <span class="n">layer_jacobians</span>
                             <span class="p">],</span>
                             <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
@@ -1303,7 +1378,7 @@ src="/_sphinx/documentation_options.js"></script>
 
 <div class="viewcode-block" id="TracInCP.self_influence">
 <a class="viewcode-back" href="../../../../influence.html#captum.influence.TracInCP.self_influence">[docs]</a>
-    <span class="nd">@log_usage</span><span class="p">()</span>
+    <span class="nd">@log_usage</span><span class="p">(</span><span class="n">part_of_slo</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">self_influence</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">DataLoader</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1384,6 +1459,7 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
         <span class="n">targets</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.</span>
         <span class="n">loss_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">reduction_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
@@ -1408,34 +1484,30 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                    argument is only used if `sample_wise_grads_per_batch` was true in</span>
 <span class="sd">                    initialization.</span>
 <span class="sd">        """</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_wise_grads_per_batch</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_compute_jacobian_wrt_params_with_sample_wise_trick</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
-                <span class="n">inputs</span><span class="p">,</span>
-                <span class="n">targets</span><span class="p">,</span>
-                <span class="n">loss_fn</span><span class="p">,</span>
-                <span class="n">reduction_type</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">layer_modules</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="n">_compute_jacobian_wrt_params</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
-            <span class="n">inputs</span><span class="p">,</span>
-            <span class="n">targets</span><span class="p">,</span>
-            <span class="n">loss_fn</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">layer_modules</span><span class="p">,</span>
+        <span class="k">return</span> <span class="n">_compute_jacobian_sample_wise_grads_per_batch</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">loss_fn</span><span class="p">,</span> <span class="n">reduction_type</span>
         <span class="p">)</span></div>
 
 </pre></div>
 </div>
 </div>
 </div>
-<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div aria-label="Main" class="sphinxsidebar" role="navigation">
 <div class="sphinxsidebarwrapper">
 <h1 class="logo"><a href="../../../../index.html">Captum</a></h1>
-<h3>Navigation</h3>
+<search id="searchbox" role="search" style="display: none">
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" placeholder="Search" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../attribution.html">Attribution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../llm_attr.html">LLM Attribution Classes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../noise_tunnel.html">NoiseTunnel</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../layer.html">Layer Attribution</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../neuron.html">Neuron Attribution</a></li>
@@ -1461,20 +1533,10 @@ src="/_sphinx/documentation_options.js"></script>
 </ul></li>
 </ul>
 </div>
-<div id="searchbox" role="search" style="display: none">
-<h3 id="searchlabel">Quick search</h3>
-<div class="searchformwrapper">
-<form action="../../../../search.html" class="search" method="get">
-<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
-<input type="submit" value="Go"/>
-</form>
-</div>
-</div>
-<script>document.getElementById('searchbox').style.display = "block"</script>
 </div>
 </div>
 <div class="clearer"></div>
-</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2023 Facebook Inc.</section><script>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Docs</h5><a href="/docs/introduction">Introduction</a><a href="/docs/getting_started">Getting Started</a><a href="/tutorials/">Tutorials</a><a href="/api/">API Reference</a></div><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div><div class="footerSection"><h5>Social</h5><div class="social"><a class="github-button" href="https://github.com/pytorch/captum" data-count-href="https://github.com/pytorch/captum/stargazers" data-show-count="true" data-count-aria-label="# stargazers on GitHub" aria-label="Star Captum on GitHub">captum</a></div></div></section><a href="https://opensource.facebook.com/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright"> Copyright © 2025 Facebook Inc.</section><script>
             (function() {
               var BAD_BASE = '/captum/';
               if (window.location.origin !== 'https://captum.ai') {
