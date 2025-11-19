@@ -122,8 +122,6 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="n">use_weights</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dtype</span><span class="p">]:</span>
 
-    <span class="n">initial_eval</span> <span class="o">=</span> <span class="n">_parse_forward_out</span><span class="p">(</span><span class="n">initial_eval</span><span class="p">)</span>
-
     <span class="c1"># number of elements in the output of forward_func</span>
     <span class="n">n_outputs</span> <span class="o">=</span> <span class="n">initial_eval</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
 
@@ -183,6 +181,74 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">attrib</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">total_attrib</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_format_output</span><span class="p">(</span><span class="n">is_inputs_tuple</span><span class="p">,</span> <span class="n">attrib</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">check_output_shape_valid</span><span class="p">(</span>
+    <span class="n">inputs</span><span class="p">:</span> <span class="n">TensorOrTupleOfTensorsGeneric</span><span class="p">,</span>
+    <span class="n">num_examples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">initial_eval</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">modified_eval</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">perturbations_per_eval</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Validates that the forward function's output shape scales correctly with</span>
+<span class="sd">    input batch size when perturbations_per_eval &gt; 1.</span>
+
+<span class="sd">    When multiple perturbations are evaluated simultaneously</span>
+<span class="sd">    (perturbations_per_eval &gt; 1),</span>
+<span class="sd">    the forward function must return outputs whose first dimension grows proportionally</span>
+<span class="sd">    with the input batch size. This ensures the forward function is not aggregating</span>
+<span class="sd">    results across the batch, which would prevent correct attribution calculation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        inputs (Tensor or tuple[Tensor, ...]): Input tensors used for evaluation.</span>
+<span class="sd">                    The first dimension of inputs[0] is used to determine current</span>
+<span class="sd">                    batch size.</span>
+<span class="sd">        num_examples (int): The original number of examples (batch size) before</span>
+<span class="sd">                    expansion for perturbations.</span>
+<span class="sd">        initial_eval (Tensor): Output from forward function with original batch size</span>
+<span class="sd">                    (perturbations_per_eval = 1). Used as baseline for shape comparison.</span>
+<span class="sd">        modified_eval (Tensor): Output from forward function with expanded batch size</span>
+<span class="sd">                    (batch_size = num_examples * n_perturb).</span>
+<span class="sd">        perturbations_per_eval (int): Number of perturbations processed simultaneously.</span>
+<span class="sd">                    Validation only occurs when this value is greater than 1.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        AssertionError: If perturbations_per_eval &gt; 1 and the output shape does not</span>
+<span class="sd">                    scale correctly. Specifically, if modified_eval.shape[0] is not</span>
+<span class="sd">                    equal to n_perturb * initial_eval.shape[0], where n_perturb is</span>
+<span class="sd">                    the ratio of current batch size to original batch size.</span>
+<span class="sd">    """</span>
+
+    <span class="k">if</span> <span class="n">perturbations_per_eval</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># if perturbations_per_eval &gt; 1, the output shape must grow with</span>
+        <span class="c1"># input and not be aggregated</span>
+        <span class="n">current_batch_size</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># number of perturbation, which is not the same as</span>
+        <span class="c1"># perturbations_per_eval when not enough features to perturb</span>
+        <span class="n">n_perturb</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">current_batch_size</span> <span class="o">//</span> <span class="n">num_examples</span>
+        <span class="n">mod_perturb</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">current_batch_size</span> <span class="o">%</span> <span class="n">num_examples</span>
+        <span class="n">current_output_shape</span> <span class="o">=</span> <span class="n">modified_eval</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="c1"># use initial_eval as the forward of perturbations_per_eval = 1</span>
+        <span class="n">initial_output_shape</span> <span class="o">=</span> <span class="n">initial_eval</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="c1"># check if the output is not a scalar</span>
+            <span class="n">current_output_shape</span>
+            <span class="ow">and</span> <span class="n">initial_output_shape</span>
+            <span class="ow">and</span> <span class="n">mod_perturb</span> <span class="o">==</span> <span class="mi">0</span>
+            <span class="c1"># check if the output grow in same ratio, i.e., not agg</span>
+            <span class="ow">and</span> <span class="n">current_output_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">n_perturb</span> <span class="o">*</span> <span class="n">initial_output_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">),</span> <span class="p">(</span>
+            <span class="s2">"When perturbations_per_eval &gt; 1, forward_func's output "</span>
+            <span class="s2">"should be a tensor whose 1st dim grow with the input "</span>
+            <span class="sa">f</span><span class="s2">"batch size: when input batch size is </span><span class="si">{</span><span class="n">num_examples</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"the output shape is </span><span class="si">{</span><span class="n">initial_output_shape</span><span class="si">}</span><span class="s2">; "</span>
+            <span class="sa">f</span><span class="s2">"when input batch size is </span><span class="si">{</span><span class="n">current_batch_size</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"the output shape is </span><span class="si">{</span><span class="n">current_output_shape</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
 
 
 <div class="viewcode-block" id="FeatureAblation">
@@ -431,7 +497,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">        """</span>
         <span class="c1"># Keeps track whether original input is a tuple or not before</span>
         <span class="c1"># converting it into a tuple. We return the attribution as tuple in the</span>
-        <span class="c1"># end if the inputs where tuple.</span>
+        <span class="c1"># end if the inputs were a tuple.</span>
         <span class="n">is_inputs_tuple</span> <span class="o">=</span> <span class="n">_is_tuple</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
 
         <span class="n">formatted_inputs</span><span class="p">,</span> <span class="n">baselines</span> <span class="o">=</span> <span class="n">_format_input_baseline</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">baselines</span><span class="p">)</span>
@@ -479,7 +545,7 @@ src="/_sphinx/documentation_options.js"></script>
                     <span class="s2">"when using the attribute function, initial_eval should have "</span>
                     <span class="sa">f</span><span class="s2">"non-Future type rather than </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">initial_eval</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span>
-
+            <span class="n">initial_eval</span> <span class="o">=</span> <span class="n">_parse_forward_out</span><span class="p">(</span><span class="n">initial_eval</span><span class="p">)</span>
             <span class="p">(</span>
                 <span class="n">total_attrib</span><span class="p">,</span>
                 <span class="n">weights</span><span class="p">,</span>
@@ -618,6 +684,7 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="n">current_target</span><span class="p">,</span>
                 <span class="n">current_additional_args</span><span class="p">,</span>
             <span class="p">)</span>
+            <span class="n">modified_eval</span> <span class="o">=</span> <span class="n">_parse_forward_out</span><span class="p">(</span><span class="n">modified_eval</span><span class="p">)</span>
 
             <span class="n">attr_progress</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
 
@@ -625,19 +692,25 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="s2">"when use_futures is True, modified_eval should have "</span>
                 <span class="sa">f</span><span class="s2">"non-Future type rather than </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">modified_eval</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
-
+            <span class="c1"># Just do the check once.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_output_shape_valid</span><span class="p">:</span>
+                <span class="n">check_output_shape_valid</span><span class="p">(</span>
+                    <span class="n">inputs</span><span class="o">=</span><span class="n">current_inputs</span><span class="p">,</span>
+                    <span class="n">num_examples</span><span class="o">=</span><span class="n">num_examples</span><span class="p">,</span>
+                    <span class="n">initial_eval</span><span class="o">=</span><span class="n">initial_eval</span><span class="p">,</span>
+                    <span class="n">modified_eval</span><span class="o">=</span><span class="n">modified_eval</span><span class="p">,</span>
+                    <span class="n">perturbations_per_eval</span><span class="o">=</span><span class="n">perturbations_per_eval</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_is_output_shape_valid</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="n">total_attrib</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_ablated_out_full</span><span class="p">(</span>
-                <span class="n">modified_eval</span><span class="p">,</span>
-                <span class="n">current_masks</span><span class="p">,</span>
-                <span class="n">flattened_initial_eval</span><span class="p">,</span>
-                <span class="n">initial_eval</span><span class="p">,</span>
-                <span class="n">current_inputs</span><span class="p">,</span>
-                <span class="n">n_outputs</span><span class="p">,</span>
-                <span class="n">num_examples</span><span class="p">,</span>
-                <span class="n">total_attrib</span><span class="p">,</span>
-                <span class="n">weights</span><span class="p">,</span>
-                <span class="n">attrib_type</span><span class="p">,</span>
-                <span class="n">perturbations_per_eval</span><span class="p">,</span>
+                <span class="n">modified_eval</span><span class="o">=</span><span class="n">modified_eval</span><span class="p">,</span>
+                <span class="n">current_mask</span><span class="o">=</span><span class="n">current_masks</span><span class="p">,</span>
+                <span class="n">flattened_initial_eval</span><span class="o">=</span><span class="n">flattened_initial_eval</span><span class="p">,</span>
+                <span class="n">inputs</span><span class="o">=</span><span class="n">current_inputs</span><span class="p">,</span>
+                <span class="n">n_outputs</span><span class="o">=</span><span class="n">n_outputs</span><span class="p">,</span>
+                <span class="n">total_attrib</span><span class="o">=</span><span class="n">total_attrib</span><span class="p">,</span>
+                <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+                <span class="n">attrib_type</span><span class="o">=</span><span class="n">attrib_type</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">total_attrib</span><span class="p">,</span> <span class="n">weights</span>
 
@@ -742,6 +815,7 @@ src="/_sphinx/documentation_options.js"></script>
                     <span class="s2">"initial_eval_to_processed_initial_eval_fut: "</span>
                     <span class="s2">"initial_eval should be a Tensor"</span>
                 <span class="p">)</span>
+            <span class="n">initial_eval_processed</span> <span class="o">=</span> <span class="n">_parse_forward_out</span><span class="p">(</span><span class="n">initial_eval_processed</span><span class="p">)</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">process_initial_eval</span><span class="p">(</span>
                 <span class="n">initial_eval_processed</span><span class="p">,</span> <span class="n">formatted_inputs</span><span class="p">,</span> <span class="n">use_weights</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_weights</span>
             <span class="p">)</span>
@@ -1079,6 +1153,7 @@ src="/_sphinx/documentation_options.js"></script>
                     <span class="s2">"total_attrib, weights, initial_eval, "</span>
                     <span class="s2">"flattened_initial_eval, n_outputs, attrib_type "</span>
                 <span class="p">)</span>
+            <span class="n">modified_eval</span> <span class="o">=</span> <span class="n">_parse_forward_out</span><span class="p">(</span><span class="n">modified_eval</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">modified_eval</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
                     <span class="s2">"_eval_fut_to_ablated_out_fut_cross_tensor: "</span>
@@ -1092,13 +1167,21 @@ src="/_sphinx/documentation_options.js"></script>
                 <span class="n">n_outputs</span><span class="p">,</span>
                 <span class="n">attrib_type</span><span class="p">,</span>
             <span class="p">)</span> <span class="o">=</span> <span class="n">initial_eval_tuple</span>
+            <span class="c1"># Just do the check once.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_output_shape_valid</span><span class="p">:</span>
+                <span class="n">check_output_shape_valid</span><span class="p">(</span>
+                    <span class="n">inputs</span><span class="o">=</span><span class="n">current_inputs</span><span class="p">,</span>
+                    <span class="n">num_examples</span><span class="o">=</span><span class="n">num_examples</span><span class="p">,</span>
+                    <span class="n">initial_eval</span><span class="o">=</span><span class="n">initial_eval</span><span class="p">,</span>
+                    <span class="n">modified_eval</span><span class="o">=</span><span class="n">modified_eval</span><span class="p">,</span>
+                    <span class="n">perturbations_per_eval</span><span class="o">=</span><span class="n">perturbations_per_eval</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_is_output_shape_valid</span> <span class="o">=</span> <span class="kc">True</span>
+
             <span class="n">total_attrib</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_ablated_out_full</span><span class="p">(</span>
                 <span class="n">modified_eval</span><span class="o">=</span><span class="n">modified_eval</span><span class="p">,</span>
                 <span class="n">inputs</span><span class="o">=</span><span class="n">current_inputs</span><span class="p">,</span>
                 <span class="n">current_mask</span><span class="o">=</span><span class="n">current_mask</span><span class="p">,</span>
-                <span class="n">perturbations_per_eval</span><span class="o">=</span><span class="n">perturbations_per_eval</span><span class="p">,</span>
-                <span class="n">num_examples</span><span class="o">=</span><span class="n">num_examples</span><span class="p">,</span>
-                <span class="n">initial_eval</span><span class="o">=</span><span class="n">initial_eval</span><span class="p">,</span>
                 <span class="n">flattened_initial_eval</span><span class="o">=</span><span class="n">flattened_initial_eval</span><span class="p">,</span>
                 <span class="n">n_outputs</span><span class="o">=</span><span class="n">n_outputs</span><span class="p">,</span>
                 <span class="n">total_attrib</span><span class="o">=</span><span class="n">total_attrib</span><span class="p">,</span>
@@ -1116,47 +1199,12 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">modified_eval</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
         <span class="n">current_mask</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
         <span class="n">flattened_initial_eval</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">initial_eval</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">TensorOrTupleOfTensorsGeneric</span><span class="p">,</span>
         <span class="n">n_outputs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">num_examples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">total_attrib</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
         <span class="n">weights</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
         <span class="n">attrib_type</span><span class="p">:</span> <span class="n">dtype</span><span class="p">,</span>
-        <span class="n">perturbations_per_eval</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]]:</span>
-        <span class="n">modified_eval</span> <span class="o">=</span> <span class="n">_parse_forward_out</span><span class="p">(</span><span class="n">modified_eval</span><span class="p">)</span>
-        <span class="c1"># if perturbations_per_eval &gt; 1, the output shape must grow with</span>
-        <span class="c1"># input and not be aggregated</span>
-        <span class="n">current_batch_size</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-        <span class="c1"># number of perturbation, which is not the same as</span>
-        <span class="c1"># perturbations_per_eval when not enough features to perturb</span>
-        <span class="n">n_perturb</span> <span class="o">=</span> <span class="n">current_batch_size</span> <span class="o">/</span> <span class="n">num_examples</span>
-        <span class="k">if</span> <span class="n">perturbations_per_eval</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_output_shape_valid</span><span class="p">:</span>
-
-            <span class="n">current_output_shape</span> <span class="o">=</span> <span class="n">modified_eval</span><span class="o">.</span><span class="n">shape</span>
-
-            <span class="c1"># use initial_eval as the forward of perturbations_per_eval = 1</span>
-            <span class="n">initial_output_shape</span> <span class="o">=</span> <span class="n">initial_eval</span><span class="o">.</span><span class="n">shape</span>
-
-            <span class="k">assert</span> <span class="p">(</span>
-                <span class="c1"># check if the output is not a scalar</span>
-                <span class="n">current_output_shape</span>
-                <span class="ow">and</span> <span class="n">initial_output_shape</span>
-                <span class="c1"># check if the output grow in same ratio, i.e., not agg</span>
-                <span class="ow">and</span> <span class="n">current_output_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">n_perturb</span> <span class="o">*</span> <span class="n">initial_output_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="p">),</span> <span class="p">(</span>
-                <span class="s2">"When perturbations_per_eval &gt; 1, forward_func's output "</span>
-                <span class="s2">"should be a tensor whose 1st dim grow with the input "</span>
-                <span class="sa">f</span><span class="s2">"batch size: when input batch size is </span><span class="si">{</span><span class="n">num_examples</span><span class="si">}</span><span class="s2">, "</span>
-                <span class="sa">f</span><span class="s2">"the output shape is </span><span class="si">{</span><span class="n">initial_output_shape</span><span class="si">}</span><span class="s2">; "</span>
-                <span class="sa">f</span><span class="s2">"when input batch size is </span><span class="si">{</span><span class="n">current_batch_size</span><span class="si">}</span><span class="s2">, "</span>
-                <span class="sa">f</span><span class="s2">"the output shape is </span><span class="si">{</span><span class="n">current_output_shape</span><span class="si">}</span><span class="s2">"</span>
-            <span class="p">)</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_is_output_shape_valid</span> <span class="o">=</span> <span class="kc">True</span>
-
         <span class="c1"># reshape the leading dim for n_feature_perturbed</span>
         <span class="c1"># flatten each feature's eval outputs into 1D of (n_outputs)</span>
         <span class="n">modified_eval</span> <span class="o">=</span> <span class="n">modified_eval</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_outputs</span><span class="p">)</span>
