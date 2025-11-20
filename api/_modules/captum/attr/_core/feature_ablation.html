@@ -251,6 +251,52 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="p">)</span>
 
 
+<span class="k">def</span> <span class="nf">_should_skip_inputs_and_warn</span><span class="p">(</span>
+    <span class="n">current_feature_idxs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">feature_idx_to_tensor_idx</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+    <span class="n">formatted_inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">min_examples_per_batch_grouped</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Determines whether a feature group should be skipped during attribution computation.</span>
+
+<span class="sd">    This method checks two conditions that would cause a feature group to be skipped:</span>
+<span class="sd">    1. If min_examples_per_batch_grouped is specified and any input tensor in the</span>
+<span class="sd">       feature group has a batch size (0th dimension) smaller than this threshold.</span>
+<span class="sd">    2. If all input tensors in the feature group are empty (contain no elements).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True if the feature group should be skipped, False otherwise.</span>
+<span class="sd">    """</span>
+    <span class="n">should_skip</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">all_empty</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">tensor_idx_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">feature_idx</span> <span class="ow">in</span> <span class="n">current_feature_idxs</span><span class="p">:</span>
+        <span class="n">tensor_idx_list</span> <span class="o">+=</span> <span class="n">feature_idx_to_tensor_idx</span><span class="p">[</span><span class="n">feature_idx</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">tensor_idx</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">tensor_idx_list</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">all_empty</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">numel</span><span class="p">(</span><span class="n">formatted_inputs</span><span class="p">[</span><span class="n">tensor_idx</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">all_empty</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">min_examples_per_batch_grouped</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">formatted_inputs</span><span class="p">[</span><span class="n">tensor_idx</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">min_examples_per_batch_grouped</span>
+        <span class="p">):</span>
+            <span class="n">should_skip</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">break</span>
+    <span class="k">if</span> <span class="n">should_skip</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Skipping feature group </span><span class="si">{</span><span class="n">current_feature_idxs</span><span class="si">}</span><span class="s2"> since it contains "</span>
+            <span class="sa">f</span><span class="s2">"at least one input tensor with 0th dim less than "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">min_examples_per_batch_grouped</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">all_empty</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Skipping feature group </span><span class="si">{</span><span class="n">current_feature_idxs</span><span class="si">}</span><span class="s2"> since all "</span>
+            <span class="sa">f</span><span class="s2">"input tensors are empty"</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="kc">False</span>
+
+
 <div class="viewcode-block" id="FeatureAblation">
 <a class="viewcode-back" href="../../../../feature_ablation.html#captum.attr.FeatureAblation">[docs]</a>
 <span class="k">class</span> <span class="nc">FeatureAblation</span><span class="p">(</span><span class="n">PerturbationAttribution</span><span class="p">):</span>
@@ -725,34 +771,12 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">feature_idx_to_tensor_idx</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
         <span class="n">formatted_inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="n">should_skip</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="n">all_empty</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="n">tensor_idx_list</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">feature_idx</span> <span class="ow">in</span> <span class="n">current_feature_idxs</span><span class="p">:</span>
-            <span class="n">tensor_idx_list</span> <span class="o">+=</span> <span class="n">feature_idx_to_tensor_idx</span><span class="p">[</span><span class="n">feature_idx</span><span class="p">]</span>
-        <span class="k">for</span> <span class="n">tensor_idx</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">tensor_idx_list</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">all_empty</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">numel</span><span class="p">(</span><span class="n">formatted_inputs</span><span class="p">[</span><span class="n">tensor_idx</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">all_empty</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_examples_per_batch_grouped</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
-                <span class="n">formatted_inputs</span><span class="p">[</span><span class="n">tensor_idx</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="o">&lt;</span> <span class="n">cast</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_examples_per_batch_grouped</span><span class="p">)</span>
-            <span class="p">):</span>
-                <span class="n">should_skip</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="k">break</span>
-        <span class="k">if</span> <span class="n">should_skip</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"Skipping feature group </span><span class="si">{</span><span class="n">current_feature_idxs</span><span class="si">}</span><span class="s2"> since it contains "</span>
-                <span class="sa">f</span><span class="s2">"at least one input tensor with 0th dim less than "</span>
-                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_min_examples_per_batch_grouped</span><span class="si">}</span><span class="s2">"</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">if</span> <span class="n">all_empty</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"Skipping feature group </span><span class="si">{</span><span class="n">current_feature_idxs</span><span class="si">}</span><span class="s2"> since all "</span>
-                <span class="sa">f</span><span class="s2">"input tensors are empty"</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="n">_should_skip_inputs_and_warn</span><span class="p">(</span>
+            <span class="n">current_feature_idxs</span><span class="o">=</span><span class="n">current_feature_idxs</span><span class="p">,</span>
+            <span class="n">feature_idx_to_tensor_idx</span><span class="o">=</span><span class="n">feature_idx_to_tensor_idx</span><span class="p">,</span>
+            <span class="n">formatted_inputs</span><span class="o">=</span><span class="n">formatted_inputs</span><span class="p">,</span>
+            <span class="n">min_examples_per_batch_grouped</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_min_examples_per_batch_grouped</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_construct_ablated_input_across_tensors</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
