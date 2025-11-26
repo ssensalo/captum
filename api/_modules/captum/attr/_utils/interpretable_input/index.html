@@ -32,8 +32,10 @@ src="/_sphinx/documentation_options.js"></script>
 <h1>Source code for captum.attr._utils.interpretable_input</h1><div class="highlight"><pre>
 <span></span><span class="c1"># pyre-strict</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">PIL.Image</span>
 <span class="kn">import</span> <span class="nn">torch</span>
 
 <span class="kn">from</span> <span class="nn">captum._utils.typing</span> <span class="kn">import</span> <span class="n">TokenizerLike</span>
@@ -162,9 +164,7 @@ src="/_sphinx/documentation_options.js"></script>
 <div class="viewcode-block" id="InterpretableInput.to_model_input">
 <a class="viewcode-back" href="../../../../utilities.html#captum.attr.InterpretableInput.to_model_input">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">to_model_input</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">perturbed_tensor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">to_model_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perturbed_tensor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Get the (perturbed) input in the format required by the model</span>
 <span class="sd">        based on the given (perturbed) interpretable representation.</span>
@@ -554,6 +554,162 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="k">return</span> <span class="n">itp_attr</span></div>
 </div>
 
+
+
+<span class="k">class</span> <span class="nc">MMImageMaskInput</span><span class="p">(</span><span class="n">InterpretableInput</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    MMImageMaskInput is an implementation of InterpretableInput for the image in</span>
+<span class="sd">    multi-modality inputs, whose</span>
+<span class="sd">    interpretable features are certain image segments (e.g., groups of pixels).</span>
+<span class="sd">    It takes the image, its corresponding segmentation masks, and</span>
+<span class="sd">    a processor function which converts the image into the model inputs.</span>
+<span class="sd">    Its input format to the model will be the tokenized multi-modality tensors</span>
+<span class="sd">    (the output of the processor function),</span>
+<span class="sd">    while its interpretable representation will be a binary tensor of the number of</span>
+<span class="sd">    the image segment features whose values indicates if the image segment is</span>
+<span class="sd">    “presence” or “absence”.</span>
+
+<span class="sd">    Args:</span>
+
+<span class="sd">        processor_fn (Callable): the multi-modality processor function which take</span>
+<span class="sd">                an input image to encode with any text prompt and outputs the inputs</span>
+<span class="sd">                for the model</span>
+<span class="sd">        image (PIL.Image.Image): an opened PIL image file.</span>
+<span class="sd">        mask (Tensor, optional): the mask to group the image pixels into</span>
+<span class="sd">                segment features. It must be in the same shape as the image size</span>
+<span class="sd">                and assign each pixel a mask index.</span>
+<span class="sd">                Pixels with the same index will be seen as a single</span>
+<span class="sd">                interpretable feature, which means they must be perturbed together</span>
+<span class="sd">                and end with same attributions. When mask is None, the entire image is</span>
+<span class="sd">                considered as one interpretable feature.</span>
+<span class="sd">                Default: None</span>
+<span class="sd">        baselines (Tuple[int, int, int], optional): the baseline RGB value for</span>
+<span class="sd">                the “absent” image pixels.</span>
+<span class="sd">                Default: (255, 255, 255)</span>
+
+<span class="sd">    Examples::</span>
+
+<span class="sd">        &gt;&gt;&gt; def processor_fn(image):</span>
+<span class="sd">        &gt;&gt;&gt;    messages = [</span>
+<span class="sd">        &gt;&gt;&gt;        {</span>
+<span class="sd">        &gt;&gt;&gt;            "role": "user",</span>
+<span class="sd">        &gt;&gt;&gt;            "content": [</span>
+<span class="sd">        &gt;&gt;&gt;                {"type": "image"},</span>
+<span class="sd">        &gt;&gt;&gt;                {</span>
+<span class="sd">        &gt;&gt;&gt;                    "type": "text",</span>
+<span class="sd">        &gt;&gt;&gt;                    "text": "Please describe the image in detail.",</span>
+<span class="sd">        &gt;&gt;&gt;                },</span>
+<span class="sd">        &gt;&gt;&gt;            ],</span>
+<span class="sd">        &gt;&gt;&gt;        }</span>
+<span class="sd">        &gt;&gt;&gt;    ]</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt;    prompt = processor.apply_chat_template(</span>
+<span class="sd">        &gt;&gt;&gt;        messages, add_generation_prompt=True</span>
+<span class="sd">        &gt;&gt;&gt;)</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt;    return processor(</span>
+<span class="sd">        &gt;&gt;&gt;        text=prompt,</span>
+<span class="sd">        &gt;&gt;&gt;        images=image,</span>
+<span class="sd">        &gt;&gt;&gt;        return_tensors="pt",</span>
+<span class="sd">        &gt;&gt;&gt;    ).to(model.device)</span>
+
+<span class="sd">        &gt;&gt;&gt; image = Image.open("test.jpg")</span>
+
+<span class="sd">        &gt;&gt;&gt; # Split horizontally: left half = 0, right half = 1</span>
+<span class="sd">        &gt;&gt;&gt; mask = torch.zeros(image.size[::-1], dtype=torch.int32)</span>
+<span class="sd">        &gt;&gt;&gt; mask[:, image.size[0] // 2:] = 1</span>
+
+<span class="sd">        &gt;&gt;&gt; image_mask_inp = MMImageMaskInput(</span>
+<span class="sd">        &gt;&gt;&gt;     processor_fn=processor_fn,</span>
+<span class="sd">        &gt;&gt;&gt;     image=image,</span>
+<span class="sd">        &gt;&gt;&gt;     mask=mask,</span>
+<span class="sd">        &gt;&gt;&gt; )</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; text_inp.to_tensor()</span>
+<span class="sd">        &gt;&gt;&gt; # torch.tensor([[1, 1]])</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; text_inp.to_model_input(torch.tensor([[0, 1]]))</span>
+<span class="sd">        &gt;&gt;&gt; # model inputs where the right half of the image is masked out</span>
+
+<span class="sd">    """</span>
+
+    <span class="n">processor_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span>
+    <span class="n">image</span><span class="p">:</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span>
+    <span class="n">mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span>
+    <span class="n">baselines</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+    <span class="n">n_itp_features</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">original_model_inputs</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">mask_id_to_idx</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+    <span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># no use for now</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">processor_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">],</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">image</span><span class="p">:</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">,</span>
+        <span class="n">mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">baselines</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">processor_fn</span> <span class="o">=</span> <span class="n">processor_fn</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="n">image</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">baselines</span> <span class="o">=</span> <span class="n">baselines</span>
+
+        <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_itp_features</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mask_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_itp_features</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">mask_ids</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">mid</span><span class="p">):</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">mid</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mask_ids</span><span class="p">)}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">original_model_inputs</span> <span class="o">=</span> <span class="n">processor_fn</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">to_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_itp_features</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">to_model_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perturbed_tensor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">perturbed_tensor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">original_model_inputs</span>
+
+        <span class="n">img_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">perturbed_tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">img_array</span><span class="p">[:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">baselines</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">mask_id</span><span class="p">,</span> <span class="n">itp_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">perturbed_tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">itp_idx</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">mask_positions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">==</span> <span class="n">mask_id</span>
+                    <span class="n">img_array</span><span class="p">[</span><span class="n">mask_positions</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">baselines</span>
+
+        <span class="n">perturbed_image</span> <span class="o">=</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">img_array</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">"uint8"</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">processor_fn</span><span class="p">(</span><span class="n">perturbed_image</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">format_attr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">itp_attr</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">itp_attr</span><span class="o">.</span><span class="n">device</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># When mask is None, treat entire image as one segment</span>
+            <span class="c1"># Create a uniform mask of all zeros to broadcast the single attribution</span>
+            <span class="n">img_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">)</span>
+            <span class="n">image_shape</span> <span class="o">=</span> <span class="n">img_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>  <span class="c1"># (height, width)</span>
+            <span class="n">formatted_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">image_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Map mask IDs to continuous indices</span>
+            <span class="n">image_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span>
+            <span class="n">formatted_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">mask_id</span><span class="p">,</span> <span class="n">itp_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">formatted_mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">==</span> <span class="n">mask_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">itp_idx</span>
+
+        <span class="n">formatted_attr</span> <span class="o">=</span> <span class="n">_scatter_itp_attr_by_mask</span><span class="p">(</span>
+            <span class="n">itp_attr</span><span class="p">,</span>
+            <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">image_shape</span><span class="p">),</span>
+            <span class="n">formatted_mask</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">formatted_attr</span>
 </pre></div>
 </div>
 </div>
