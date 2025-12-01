@@ -583,7 +583,7 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">                and end with same attributions. When mask is None, the entire image is</span>
 <span class="sd">                considered as one interpretable feature.</span>
 <span class="sd">                Default: None</span>
-<span class="sd">        baselines (Tuple[int, int, int], optional): the baseline RGB value for</span>
+<span class="sd">        baseline (Tuple[int, int, int], optional): the baseline RGB value for</span>
 <span class="sd">                the “absent” image pixels.</span>
 <span class="sd">                Default: (255, 255, 255)</span>
 
@@ -636,7 +636,7 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="n">processor_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span>
     <span class="n">image</span><span class="p">:</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span>
     <span class="n">mask</span><span class="p">:</span> <span class="n">Tensor</span>
-    <span class="n">baselines</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+    <span class="n">baseline</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
     <span class="n">n_itp_features</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">original_model_inputs</span><span class="p">:</span> <span class="n">Any</span>
     <span class="n">mask_id_to_idx</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
@@ -647,13 +647,13 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="n">processor_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">],</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">image</span><span class="p">:</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">,</span>
         <span class="n">mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">baselines</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span>
+        <span class="n">baseline</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">processor_fn</span> <span class="o">=</span> <span class="n">processor_fn</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="n">image</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">baselines</span> <span class="o">=</span> <span class="n">baselines</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">baseline</span> <span class="o">=</span> <span class="n">baseline</span>
 
         <span class="c1"># Create a dummy mask if None is provided</span>
         <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -690,7 +690,7 @@ src="/_sphinx/documentation_options.js"></script>
         <span class="k">for</span> <span class="n">mask_id</span><span class="p">,</span> <span class="n">itp_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">perturbed_tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">itp_idx</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">mask_positions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">==</span> <span class="n">mask_id</span>
-                <span class="n">img_array</span><span class="p">[</span><span class="n">mask_positions</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">baselines</span>
+                <span class="n">img_array</span><span class="p">[</span><span class="n">mask_positions</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">baseline</span>
 
         <span class="n">perturbed_image</span> <span class="o">=</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">img_array</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">"uint8"</span><span class="p">))</span>
 
