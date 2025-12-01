@@ -605,20 +605,20 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">        &gt;&gt;&gt;</span>
 <span class="sd">        &gt;&gt;&gt;    prompt = processor.apply_chat_template(</span>
 <span class="sd">        &gt;&gt;&gt;        messages, add_generation_prompt=True</span>
-<span class="sd">        &gt;&gt;&gt;)</span>
+<span class="sd">        &gt;&gt;&gt;    )</span>
 <span class="sd">        &gt;&gt;&gt;</span>
 <span class="sd">        &gt;&gt;&gt;    return processor(</span>
 <span class="sd">        &gt;&gt;&gt;        text=prompt,</span>
 <span class="sd">        &gt;&gt;&gt;        images=image,</span>
 <span class="sd">        &gt;&gt;&gt;        return_tensors="pt",</span>
 <span class="sd">        &gt;&gt;&gt;    ).to(model.device)</span>
-
+<span class="sd">        &gt;&gt;&gt;</span>
 <span class="sd">        &gt;&gt;&gt; image = Image.open("test.jpg")</span>
-
+<span class="sd">        &gt;&gt;&gt;</span>
 <span class="sd">        &gt;&gt;&gt; # Split horizontally: left half = 0, right half = 1</span>
 <span class="sd">        &gt;&gt;&gt; mask = torch.zeros(image.size[::-1], dtype=torch.int32)</span>
 <span class="sd">        &gt;&gt;&gt; mask[:, image.size[0] // 2:] = 1</span>
-
+<span class="sd">        &gt;&gt;&gt;</span>
 <span class="sd">        &gt;&gt;&gt; image_mask_inp = MMImageMaskInput(</span>
 <span class="sd">        &gt;&gt;&gt;     processor_fn=processor_fn,</span>
 <span class="sd">        &gt;&gt;&gt;     image=image,</span>
@@ -635,12 +635,12 @@ src="/_sphinx/documentation_options.js"></script>
 
     <span class="n">processor_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span>
     <span class="n">image</span><span class="p">:</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span>
-    <span class="n">mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span>
+    <span class="n">mask</span><span class="p">:</span> <span class="n">Tensor</span>
     <span class="n">baselines</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
     <span class="n">n_itp_features</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">original_model_inputs</span><span class="p">:</span> <span class="n">Any</span>
     <span class="n">mask_id_to_idx</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
-    <span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># no use for now</span>
+    <span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -653,18 +653,30 @@ src="/_sphinx/documentation_options.js"></script>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">processor_fn</span> <span class="o">=</span> <span class="n">processor_fn</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="n">image</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">baselines</span> <span class="o">=</span> <span class="n">baselines</span>
 
+        <span class="c1"># Create a dummy mask if None is provided</span>
         <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">n_itp_features</span> <span class="o">=</span> <span class="mi">1</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="c1"># Create a mask with all zeros (entire image as one segment)</span>
+            <span class="n">image_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">image</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># (height, width)</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">image_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">mask_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">n_itp_features</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">mask_ids</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">mid</span><span class="p">):</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">mid</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mask_ids</span><span class="p">)}</span>
+            <span class="c1"># Validate that mask size matches image size</span>
+            <span class="n">image_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">image</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># (height, width)</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="n">mask</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">image_shape</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">"mask shape </span><span class="si">{</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> must match image shape </span><span class="si">{</span><span class="n">image_shape</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span>
+        <span class="n">mask_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_itp_features</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">mask_ids</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">mid</span><span class="p">):</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">mid</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mask_ids</span><span class="p">)}</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">original_model_inputs</span> <span class="o">=</span> <span class="n">processor_fn</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+
+        <span class="c1"># temporarily for compatibility with AttributionResult</span>
+        <span class="c1"># which use the values for plot legends</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"image_feature_</span><span class="si">{</span><span class="n">mid</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">mid</span> <span class="ow">in</span> <span class="n">mask_ids</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">to_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_itp_features</span><span class="p">])</span>
@@ -675,14 +687,10 @@ src="/_sphinx/documentation_options.js"></script>
 
         <span class="n">img_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">perturbed_tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">img_array</span><span class="p">[:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">baselines</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">mask_id</span><span class="p">,</span> <span class="n">itp_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="k">if</span> <span class="n">perturbed_tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">itp_idx</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">mask_positions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">==</span> <span class="n">mask_id</span>
-                    <span class="n">img_array</span><span class="p">[</span><span class="n">mask_positions</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">baselines</span>
+        <span class="k">for</span> <span class="n">mask_id</span><span class="p">,</span> <span class="n">itp_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">perturbed_tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">itp_idx</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">mask_positions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">==</span> <span class="n">mask_id</span>
+                <span class="n">img_array</span><span class="p">[</span><span class="n">mask_positions</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">baselines</span>
 
         <span class="n">perturbed_image</span> <span class="o">=</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">img_array</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">"uint8"</span><span class="p">))</span>
 
@@ -691,18 +699,11 @@ src="/_sphinx/documentation_options.js"></script>
     <span class="k">def</span> <span class="nf">format_attr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">itp_attr</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
         <span class="n">device</span> <span class="o">=</span> <span class="n">itp_attr</span><span class="o">.</span><span class="n">device</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># When mask is None, treat entire image as one segment</span>
-            <span class="c1"># Create a uniform mask of all zeros to broadcast the single attribution</span>
-            <span class="n">img_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">)</span>
-            <span class="n">image_shape</span> <span class="o">=</span> <span class="n">img_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>  <span class="c1"># (height, width)</span>
-            <span class="n">formatted_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">image_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Map mask IDs to continuous indices</span>
-            <span class="n">image_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span>
-            <span class="n">formatted_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">mask_id</span><span class="p">,</span> <span class="n">itp_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">formatted_mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">==</span> <span class="n">mask_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">itp_idx</span>
+        <span class="c1"># Map mask IDs to continuous indices</span>
+        <span class="n">image_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">formatted_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">mask_id</span><span class="p">,</span> <span class="n">itp_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_id_to_idx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">formatted_mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">==</span> <span class="n">mask_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">itp_idx</span>
 
         <span class="n">formatted_attr</span> <span class="o">=</span> <span class="n">_scatter_itp_attr_by_mask</span><span class="p">(</span>
             <span class="n">itp_attr</span><span class="p">,</span>
