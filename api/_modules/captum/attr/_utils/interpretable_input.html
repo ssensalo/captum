@@ -556,24 +556,21 @@ src="/_sphinx/documentation_options.js"></script>
 
 
 
-<span class="k">class</span> <span class="nc">MMImageMaskInput</span><span class="p">(</span><span class="n">InterpretableInput</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">ImageMaskInput</span><span class="p">(</span><span class="n">InterpretableInput</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    MMImageMaskInput is an implementation of InterpretableInput for the image in</span>
-<span class="sd">    multi-modality inputs, whose</span>
+<span class="sd">    ImageMaskInput is an implementation of InterpretableInput for the image, whose</span>
 <span class="sd">    interpretable features are certain image segments (e.g., groups of pixels).</span>
-<span class="sd">    It takes the image, its corresponding segmentation masks, and</span>
-<span class="sd">    a processor function which converts the image into the model inputs.</span>
-<span class="sd">    Its input format to the model will be the tokenized multi-modality tensors</span>
-<span class="sd">    (the output of the processor function),</span>
-<span class="sd">    while its interpretable representation will be a binary tensor of the number of</span>
+<span class="sd">    It takes an image and its corresponding segmentation masks .</span>
+<span class="sd">    Its interpretable representation will be a binary tensor of the number of</span>
 <span class="sd">    the image segment features whose values indicates if the image segment is</span>
-<span class="sd">    “presence” or “absence”.</span>
+<span class="sd">    “presence” or “absence”. By default, its model input will be the masked out image.</span>
+<span class="sd">    But it also accepts an optional processor function, which converts the image into</span>
+<span class="sd">    the model inputs if the model does not directly consume images.</span>
+<span class="sd">    A typical example is MM LLM, which requires the image to be processed with</span>
+<span class="sd">    other texts into the tokenized multi-modality tensors.</span>
 
 <span class="sd">    Args:</span>
 
-<span class="sd">        processor_fn (Callable): the multi-modality processor function which take</span>
-<span class="sd">                an input image to encode with any text prompt and outputs the inputs</span>
-<span class="sd">                for the model</span>
 <span class="sd">        image (PIL.Image.Image): an opened PIL image file.</span>
 <span class="sd">        mask (Tensor, optional): the mask to group the image pixels into</span>
 <span class="sd">                segment features. It must be in the same shape as the image size</span>
@@ -586,6 +583,10 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">        baseline (Tuple[int, int, int], optional): the baseline RGB value for</span>
 <span class="sd">                the “absent” image pixels.</span>
 <span class="sd">                Default: (255, 255, 255)</span>
+<span class="sd">        processor_fn (Callable, optional): function convert the image into</span>
+<span class="sd">                the model input. A common example is the multi-modality LLM processor</span>
+<span class="sd">                function which take an input image to encode with any text prompt</span>
+<span class="sd">                and outputs the inputs for the LLM</span>
 
 <span class="sd">    Examples::</span>
 
@@ -619,10 +620,10 @@ src="/_sphinx/documentation_options.js"></script>
 <span class="sd">        &gt;&gt;&gt; mask = torch.zeros(image.size[::-1], dtype=torch.int32)</span>
 <span class="sd">        &gt;&gt;&gt; mask[:, image.size[0] // 2:] = 1</span>
 <span class="sd">        &gt;&gt;&gt;</span>
-<span class="sd">        &gt;&gt;&gt; image_mask_inp = MMImageMaskInput(</span>
-<span class="sd">        &gt;&gt;&gt;     processor_fn=processor_fn,</span>
+<span class="sd">        &gt;&gt;&gt; image_mask_inp = ImageMaskInput(</span>
 <span class="sd">        &gt;&gt;&gt;     image=image,</span>
 <span class="sd">        &gt;&gt;&gt;     mask=mask,</span>
+<span class="sd">        &gt;&gt;&gt;     processor_fn=processor_fn,</span>
 <span class="sd">        &gt;&gt;&gt; )</span>
 <span class="sd">        &gt;&gt;&gt;</span>
 <span class="sd">        &gt;&gt;&gt; text_inp.to_tensor()</span>
@@ -633,10 +634,10 @@ src="/_sphinx/documentation_options.js"></script>
 
 <span class="sd">    """</span>
 
-    <span class="n">processor_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span>
     <span class="n">image</span><span class="p">:</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span>
     <span class="n">mask</span><span class="p">:</span> <span class="n">Tensor</span>
     <span class="n">baseline</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+    <span class="n">processor_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span>
     <span class="n">n_itp_features</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">original_model_inputs</span><span class="p">:</span> <span class="n">Any</span>
     <span class="n">mask_id_to_idx</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
@@ -644,10 +645,10 @@ src="/_sphinx/documentation_options.js"></script>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">processor_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">],</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">image</span><span class="p">:</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">,</span>
         <span class="n">mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">baseline</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span>
+        <span class="n">processor_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 

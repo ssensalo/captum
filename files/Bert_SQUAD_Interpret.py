@@ -30,7 +30,7 @@ from captum.attr import LayerConductance, LayerIntegratedGradients
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# The first step is to fine-tune the BERT model on the SQUAD dataset. This can be easiy accomplished by following the steps described in hugging face's official web site: https://github.com/huggingface/transformers#run_squadpy-fine-tuning-on-squad-for-question-answering.
+# The first step is to fine-tune the BERT model on the SQUAD dataset. This can be easiy accomplished by following the steps described in hugging face's official web site: https://github.com/huggingface/transformers/tree/main/examples/pytorch/question-answering.
 # 
 # Note that the fine-tuning is done on a `bert-base-uncased` pre-trained model.
 
