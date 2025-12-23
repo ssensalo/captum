@@ -545,9 +545,14 @@ src="/_sphinx/documentation_options.js"></script>
             <span class="k">assert</span> <span class="n">gen_args</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">"gen_args must be None when target is given"</span>
 
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-                <span class="n">encoded</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-                <span class="c1"># skip the first special token &lt;sos&gt;</span>
-                <span class="n">target_tokens</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">encoded</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+                <span class="c1"># skip the leading special token bos</span>
+                <span class="c1"># but add_special_tokens may also skip tailing tokens like eos</span>
+                <span class="c1"># will it be a problem to the reliability of attr scores?</span>
+                <span class="c1"># in Llama4, &lt;|eot|&gt; is appended even with add_special_tokens=False</span>
+                <span class="c1"># this api also limits us to hf</span>
+                <span class="c1"># https://huggingface.co/docs/transformers/en/main_classes/tokenizer#transformers.PythonBackend.encode.add_special_tokens</span>
+                <span class="n">encoded</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">add_special_tokens</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">target_tokens</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">encoded</span><span class="p">)</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
                 <span class="n">target_tokens</span> <span class="o">=</span> <span class="n">target</span>
             <span class="k">else</span><span class="p">:</span>
