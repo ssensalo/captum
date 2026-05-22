@@ -19,6 +19,7 @@ import torch
 
 from captum.attr import IntegratedGradients
 from captum.attr import LayerConductance
+from captum.attr import Lime
 from captum.attr import NeuronConductance
 
 import matplotlib
@@ -104,7 +105,7 @@ train_labels = labels[train_indices]
 test_features = np.array(data[test_indices], dtype=float)
 test_labels = labels[test_indices]
 
-# We are now ready to define the neural network architecture we will use for the task. We have defined a simple architecture using 2 hidden layers, the first with 12 hidden units and the second with 8 hidden units, each with Sigmoid non-linearity. The final layer performs a softmax operation and has 2 units, corresponding to the outputs of either survived (1) or not survived (0).
+# We are now ready to define the neural network architecture we will use for the task. We have defined a simple architecture using 2 hidden layers, the first with 12 hidden units and the second with 8 hidden units, each with Sigmoid non-linearity. The final layer has 2 output units, corresponding to the logits for either survived (1) or not survived (0).
 
 # In[6]:
 
@@ -120,13 +121,12 @@ class TitanicSimpleNNModel(nn.Module):
         self.linear2 = nn.Linear(12, 8)
         self.sigmoid2 = nn.Sigmoid()
         self.linear3 = nn.Linear(8, 2)
-        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         lin1_out = self.linear1(x)
         sigmoid_out1 = self.sigmoid1(lin1_out)
         sigmoid_out2 = self.sigmoid2(self.linear2(sigmoid_out1))
-        return self.softmax(self.linear3(sigmoid_out2))
+        return self.linear3(sigmoid_out2)
 
 # We can either use a pretrained model or train the network using the training data for 200 epochs. Note that the results of later steps may not match if retraining. The pretrained model can be downloaded here: https://github.com/pytorch/captum/blob/master/tutorials/models/titanic_model.pt
 
@@ -164,16 +164,16 @@ else:
 # In[8]:
 
 
-out_probs = net(input_tensor).detach().numpy()
-out_classes = np.argmax(out_probs, axis=1)
+out_logits = net(input_tensor).detach().numpy()
+out_classes = np.argmax(out_logits, axis=1)
 print("Train Accuracy:", sum(out_classes == train_labels) / len(train_labels))
 
 # In[9]:
 
 
 test_input_tensor = torch.from_numpy(test_features).type(torch.FloatTensor)
-out_probs = net(test_input_tensor).detach().numpy()
-out_classes = np.argmax(out_probs, axis=1)
+out_logits = net(test_input_tensor).detach().numpy()
+out_classes = np.argmax(out_logits, axis=1)
 print("Test Accuracy:", sum(out_classes == test_labels) / len(test_labels))
 
 # Beyond just considering the accuracy of the classifier, there are many important questions to understand how the model is working and its decision, which is the purpose of Captum, to help make neural networks in PyTorch more interpretable.
@@ -335,6 +335,36 @@ visualize_importances(feature_names, neuron_cond_vals_0.mean(dim=0).detach().num
 visualize_importances(feature_names, neuron_cond_vals_10.mean(dim=0).detach().numpy(), title="Average Feature Importances for Neuron 10")
 
 # From the visualization above, it is evident that neuron 10 primarily relies on the gender and class features, substantially different from the focus of neuron 0.
+
+# ## Applying LIME to tabular features
+
+# LIME can also be used for tabular models by treating each column, or a group of related columns, as an interpretable feature. Here each Titanic feature receives its own feature id and missing features are replaced with the mean value from the training set.
+
+# In[ ]:
+
+
+lime = Lime(net)
+
+test_input = torch.from_numpy(test_features[:1]).type(torch.FloatTensor)
+tabular_baseline = torch.from_numpy(train_features.mean(axis=0, keepdims=True)).type(torch.FloatTensor)
+feature_mask = torch.arange(test_input.shape[1]).unsqueeze(0)
+
+lime_attr = lime.attribute(
+    test_input,
+    baselines=tabular_baseline,
+    target=1,
+    feature_mask=feature_mask,
+    n_samples=300,
+    perturbations_per_eval=64,
+    return_input_shape=True,
+)
+
+print("Predicted logits:", net(test_input).detach())
+visualize_importances(
+    feature_names,
+    lime_attr.squeeze(0).detach().numpy(),
+    title="LIME Feature Importances for a Titanic Passenger",
+)
 
 # ## Summary
 
