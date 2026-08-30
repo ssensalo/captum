@@ -11,19 +11,18 @@ from __future__ import annotations
 
 import unittest
 
+import captum.insights
+from captum.insights import AttributionVisualizer, Batch
+
 
 class TestInsightsRetiredStub(unittest.TestCase):
     def test_import_insights_module(self) -> None:
-        """Importing captum.insights should succeed (stub module exists)."""
-        import captum.insights  # noqa: F811
-
-        self.assertIsNotNone(captum.insights)
+        """The stub keeps the retired names but not their removed methods."""
+        self.assertFalse(hasattr(AttributionVisualizer, "render"))
+        self.assertFalse(hasattr(AttributionVisualizer, "serve"))
 
     def test_attribution_visualizer_raises(self) -> None:
         """Instantiating AttributionVisualizer should raise ImportError."""
-        # Import is the subject under test
-        from captum.insights import AttributionVisualizer
-
         with self.assertRaises(ImportError) as ctx:
             AttributionVisualizer()
         self.assertIn("retired", str(ctx.exception).lower())
@@ -31,18 +30,12 @@ class TestInsightsRetiredStub(unittest.TestCase):
 
     def test_batch_raises(self) -> None:
         """Instantiating Batch should raise ImportError."""
-        # Import is the subject under test
-        from captum.insights import Batch
-
         with self.assertRaises(ImportError) as ctx:
             Batch()
         self.assertIn("retired", str(ctx.exception).lower())
 
     def test_unknown_attr_raises(self) -> None:
         """Accessing an unknown attribute should raise ImportError."""
-        # Import is the subject under test
-        import captum.insights
-
         with self.assertRaises(ImportError) as ctx:
             captum.insights.SomeNonexistentClass  # noqa: B018
         self.assertIn("SomeNonexistentClass", str(ctx.exception))
@@ -50,9 +43,6 @@ class TestInsightsRetiredStub(unittest.TestCase):
 
     def test_error_message_includes_migration_guidance(self) -> None:
         """Error message should include migration guidance to new API."""
-        # Import is the subject under test
-        from captum.insights import AttributionVisualizer
-
         with self.assertRaises(ImportError) as ctx:
             AttributionVisualizer()
         msg = str(ctx.exception)
